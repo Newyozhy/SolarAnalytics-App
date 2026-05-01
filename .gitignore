@@ -1,0 +1,27 @@
+# Entornos virtuales
+venv/
+env/
+.env
+.venv/
+
+# Archivos de credenciales y secretos (¡NUNCA SUBIR A GITHUB!)
+.env
+credentials.json
+
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos temporales
+*.xlsx
+*.pptx
+!templates/plantilla_reporte.pptx
+*.png
+
+# Mac OS
+.DS_Store
+
+# Directorios de IDEs
+.vscode/
+.idea/
