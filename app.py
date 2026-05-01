@@ -61,13 +61,15 @@ def main():
     
     # --- A PARTIR DE AQUÍ SOLO ACCEDEN USUARIOS AUTENTICADOS ---
     
-    # Logo ZTE en sidebar
+    # Logo ZTE en sidebar (SVG inline)
+    zte_svg = """
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 134.1" style="width: 150px; margin-bottom: 20px;">
+        <path fill="#00A6CE" d="M12.9 13.9L133.5 13.9 133.5 35.8 55.4 100.3 135 100.3 135 120.3 11 120.3 11 99.4 89.6 34.2 12.9 34.2zM218.6 34.2L218.6 120.3 189.6 120.3 189.6 34.2 144.3 34.2 144.3 13.9 263.9 13.9 263.9 34.2zM302.2 120.3L273.2 120.3 273.2 13.9 389.9 13.9 389.9 34.2 302.2 34.2 302.2 56 384.6 56 384.6 76.4 302.2 76.4 302.2 100 391.8 100 391.8 120.3z"/>
+    </svg>
+    """
     st.sidebar.markdown(
-        """
-        <div style="text-align: center; margin-bottom: 20px;">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/2/23/ZTE_logo.svg" width="150" alt="ZTE Logo">
-        </div>
-        """, unsafe_allow_html=True
+        f'<div style="text-align: center;">{zte_svg}</div>',
+        unsafe_allow_html=True
     )
     
     # Selector de idioma
