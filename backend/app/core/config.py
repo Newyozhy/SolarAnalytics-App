@@ -22,8 +22,9 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str = ""           # anon key — frontend reads
     SUPABASE_SERVICE_KEY: str = ""   # service_role key — backend writes (bypasses RLS)
 
-    # Google credentials path
-    GOOGLE_CREDENTIALS_JSON_PATH: str = "credentials.json"
+    # Google Drive configuration
+    GOOGLE_CREDENTIALS_JSON_PATH: str = "solarapp-drive-5a7a621a3732.json"
+    GOOGLE_DRIVE_ROOT_FOLDER: str = "Paneles Solares"  # Nombre de la carpeta o ID directo
 
     # CORS Configuration
     # Allow localhost for dev, and Netlify domain for production

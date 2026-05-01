@@ -11,6 +11,7 @@ from app.services.data_service import clean_solar_work_rec, get_daily_generation
 from app.services.supabase_service import (
     get_cached_project, save_project_result, list_cached_projects, get_cached_result_json
 )
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -27,9 +28,19 @@ def get_root_folders():
     """Lista las carpetas raíz dentro de 'Paneles Solares'."""
     try:
         service = get_drive_service()
-        root_id = find_folder_id(service, "Paneles Solares")
+        root_config = settings.GOOGLE_DRIVE_ROOT_FOLDER
+        
+        # 1. Intentar usar como ID directo (si tiene formato de ID de Drive)
+        # Los IDs suelen tener más de 20 caracteres y no espacios
+        if len(root_config) > 20 and " " not in root_config:
+            root_id = root_config
+        else:
+            # 2. Si no es un ID, buscar por nombre
+            root_id = find_folder_id(service, root_config)
+            
         if not root_id:
-            raise HTTPException(status_code=404, detail="Carpeta raíz 'Paneles Solares' no encontrada")
+            raise HTTPException(status_code=404, detail=f"Carpeta raíz '{root_config}' no encontrada")
+            
         folders = list_subfolders(service, root_id)
         return {"folders": folders}
     except HTTPException:
