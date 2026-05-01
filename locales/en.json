@@ -57,9 +57,13 @@
   "exploring_folder": "Exploring {folder}...",
   "folders_found": "Folders found:",
   "btn_open_folder": "📂 Open this Folder",
-  "btn_process_project": "🚀 Process as Project",
+  "btn_process_project": "Start Analysis",
   "empty_folder": "This folder is empty or has no subfolders.",
-  "btn_process_this_folder": "🚀 Process this folder as Project",
+  "btn_process_this_folder": "Analyze this folder",
   "search_root": "Searching for root folder...",
-  "root_not_found": "Root folder not found."
+  "root_not_found": "Root folder not found.",
+  "view_mode": "View:",
+  "view_grid": "Grid",
+  "view_list": "List (Details)",
+  "downloading_spinner_cache": "Checking cache or downloading {project}..."
 }

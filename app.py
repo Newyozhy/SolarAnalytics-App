@@ -4,7 +4,7 @@ from src.drive_api import get_drive_service, find_folder_id, list_subfolders, do
 from src.data_processing import clean_solar_work_rec, get_daily_generation, clean_history_data
 from src.visualizations import plot_daily_generation, plot_battery_soc
 from src.report_generator import generate_excel, generate_pptx
-from src.supabase_client import log_export_operation
+from src.supabase_client import log_export_operation, get_cached_project, save_project_to_cache
 from src.i18n import t, render_language_selector
 import tempfile
 import os
@@ -51,77 +51,22 @@ def apply_zte_branding():
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         
-        /* Modal Explorer UI */
-        .explorer-row {
-            padding: 10px;
-            border-bottom: 1px solid #333;
+        /* Carpetas Grid */
+        .grid-folder {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transition: background 0.3s;
         }
-        .explorer-row:hover {
-            background-color: rgba(255,255,255,0.05);
+        .grid-folder:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: #00A6CE;
         }
         </style>
     """, unsafe_allow_html=True)
-
-@st.dialog("Explorador de Archivos (Google Drive)", width="large")
-def drive_explorer_modal(service):
-    if 'drive_path' not in st.session_state:
-        with st.spinner(t("search_root")):
-            root_id = find_folder_id(service, "Paneles Solares")
-            if root_id:
-                st.session_state.drive_path = [{'id': root_id, 'name': 'Paneles Solares'}]
-            else:
-                st.warning(t("root_not_found"))
-                return
-                
-    current_folder = st.session_state.drive_path[-1]
-    
-    # Breadcrumbs interactivos
-    bc_cols = st.columns(len(st.session_state.drive_path))
-    for i, folder in enumerate(st.session_state.drive_path):
-        with bc_cols[i]:
-            if st.button(folder['name'], key=f"bc_{i}_{folder['id']}", use_container_width=True):
-                st.session_state.drive_path = st.session_state.drive_path[:i+1]
-                st.rerun()
-                
-    st.markdown("---")
-    
-    col_up, _ = st.columns([1, 4])
-    with col_up:
-        if len(st.session_state.drive_path) > 1:
-            if st.button("⬆️ " + t("btn_up_level"), use_container_width=True):
-                st.session_state.drive_path.pop()
-                st.rerun()
-                
-    with st.spinner(t("exploring_folder", folder=current_folder['name'])):
-        subcarpetas = list_subfolders(service, current_folder['id'])
-        
-    if subcarpetas:
-        st.markdown(f"**{t('folders_found')} {len(subcarpetas)}**")
-        
-        # Encabezados de tabla
-        h_icon, h_name, h_action1, h_action2 = st.columns([1, 5, 2, 2])
-        h_name.write("**Nombre**")
-        h_action1.write("**Acción**")
-        h_action2.write("**Procesar**")
-        st.markdown("---")
-        
-        for carpeta in subcarpetas:
-            c_icon, c_name, c_act1, c_act2 = st.columns([1, 5, 2, 2])
-            c_icon.markdown("📁")
-            c_name.write(carpeta['name'])
-            with c_act1:
-                if st.button("Abrir", key=f"open_{carpeta['id']}", use_container_width=True):
-                    st.session_state.drive_path.append(carpeta)
-                    st.rerun()
-            with c_act2:
-                if st.button("Analizar", key=f"proc_{carpeta['id']}", type="primary", use_container_width=True):
-                    st.session_state.selected_project_for_processing = carpeta
-                    st.rerun()
-    else:
-        st.info(t("empty_folder"))
-        if st.button(t("btn_process_this_folder"), type="primary"):
-            st.session_state.selected_project_for_processing = current_folder
-            st.rerun()
 
 def main():
     apply_zte_branding()
@@ -215,35 +160,118 @@ def main():
         
         try:
             service = get_drive_service()
-            st.success(f"✅ {t('drive_connected')}")
             
-            if 'selected_project_for_processing' in st.session_state:
-                carpeta = st.session_state.selected_project_for_processing
-                st.info(f"Proyecto Seleccionado: **{carpeta['name']}**")
+            if 'drive_path' not in st.session_state:
+                with st.spinner(t("search_root")):
+                    root_id = find_folder_id(service, "Paneles Solares")
+                    if root_id:
+                        st.session_state.drive_path = [{'id': root_id, 'name': 'Paneles Solares'}]
+                    else:
+                        st.warning(t("root_not_found"))
+                        return
+            
+            current_folder = st.session_state.drive_path[-1]
+            
+            # --- Layout del Explorador (Mac/Windows style) ---
+            
+            # Navegación y Filtros (Barra superior)
+            breadcrumbs = " / ".join([f"{f['name']}" for f in st.session_state.drive_path])
+            st.markdown(f"### 🏠 {breadcrumbs}")
+            
+            col_up, col_view, _ = st.columns([2, 3, 5])
+            with col_up:
+                if len(st.session_state.drive_path) > 1:
+                    if st.button("⬅️ " + t("btn_up_level")):
+                        st.session_state.drive_path.pop()
+                        st.session_state.selected_project_for_processing = None
+                        st.rerun()
+            with col_view:
+                view_mode = st.radio(t("view_mode"), [t("view_grid"), t("view_list")], horizontal=True, label_visibility="collapsed")
+            
+            st.markdown("---")
+            
+            # Paneles de Contenido
+            pane_left, pane_right = st.columns([3, 2], gap="large")
+            
+            with pane_left:
+                with st.spinner(t("exploring_folder", folder=current_folder['name'])):
+                    subcarpetas = list_subfolders(service, current_folder['id'])
                 
-                with st.spinner(t("downloading_spinner", project=carpeta['name'])):
-                    dataframes = download_project_data(service, carpeta['id'])
-                    st.session_state['current_project_name'] = carpeta['name']
-                    st.session_state['current_project_id'] = carpeta['id']
-                    st.session_state['project_data'] = dataframes
-                    
-                    st.success(t("data_loaded_success", count=len(dataframes)))
-                    st.balloons()
-                    
-                    for nombre, df in dataframes.items():
-                        with st.expander(t("preview_expander", name=nombre, rows=len(df))):
-                            st.dataframe(df.head())
-                            
-                # Limpiar el estado para poder abrir otro después si se desea
-                if st.button("Cerrar y Seleccionar Otro"):
-                    del st.session_state.selected_project_for_processing
-                    st.rerun()
-            else:
-                st.markdown("### Selecciona un proyecto para analizar")
-                st.write("Haz clic en el botón de abajo para abrir el explorador de archivos de Google Drive y seleccionar tu proyecto.")
-                if st.button("🔍 Abrir Explorador de Archivos", type="primary"):
-                    drive_explorer_modal(service)
-                    
+                if not subcarpetas:
+                    st.info(t("empty_folder"))
+                else:
+                    if view_mode == t("view_grid"):
+                        # Vista Cuadrícula
+                        cols = st.columns(3)
+                        for i, carpeta in enumerate(subcarpetas):
+                            with cols[i % 3]:
+                                st.markdown(f"""
+                                <div class="grid-folder">
+                                    <div style="font-size: 30px;">📁</div>
+                                    <div style="font-size: 14px; font-weight: 600; margin-top: 5px; color: #e0e0e0; word-wrap: break-word;">{carpeta['name']}</div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                
+                                c1, c2 = st.columns(2)
+                                with c1:
+                                    if st.button("Abrir", key=f"og_{carpeta['id']}", use_container_width=True):
+                                        st.session_state.drive_path.append(carpeta)
+                                        st.session_state.selected_project_for_processing = None
+                                        st.rerun()
+                                with c2:
+                                    if st.button("Ver", key=f"vg_{carpeta['id']}", use_container_width=True):
+                                        st.session_state.selected_project_for_processing = carpeta
+                                        st.rerun()
+                    else:
+                        # Vista Lista
+                        for carpeta in subcarpetas:
+                            col_icon, col_name, col_act1, col_act2 = st.columns([1, 6, 2, 2])
+                            col_icon.markdown("📁")
+                            col_name.write(f"**{carpeta['name']}**")
+                            with col_act1:
+                                if st.button("Abrir", key=f"ol_{carpeta['id']}", use_container_width=True):
+                                    st.session_state.drive_path.append(carpeta)
+                                    st.session_state.selected_project_for_processing = None
+                                    st.rerun()
+                            with col_act2:
+                                if st.button("Ver", key=f"vl_{carpeta['id']}", use_container_width=True):
+                                    st.session_state.selected_project_for_processing = carpeta
+                                    st.rerun()
+
+            with pane_right:
+                st.markdown("### Detalles del Proyecto")
+                target_folder = st.session_state.get("selected_project_for_processing")
+                
+                if not target_folder:
+                    target_folder = current_folder
+                    st.info("Selecciona una carpeta en el explorador para ver detalles, o procesa el directorio actual.")
+                else:
+                    st.success(f"Proyecto Seleccionado: **{target_folder['name']}**")
+                
+                if st.button(t("btn_process_project"), type="primary", use_container_width=True):
+                    with st.spinner(t("downloading_spinner_cache", project=target_folder['name'])):
+                        # Fase 4: Caché Inteligente (Supabase Storage)
+                        cached_data = get_cached_project(target_folder['id'])
+                        
+                        if cached_data:
+                            dataframes = cached_data
+                            st.success("⚡ Datos cargados al instante desde la caché (Supabase).")
+                        else:
+                            st.info("Descargando desde Google Drive...")
+                            dataframes = download_project_data(service, target_folder['id'])
+                            save_project_to_cache(target_folder['id'], dataframes)
+                            st.success(t("data_loaded_success", count=len(dataframes)))
+                        
+                        st.session_state['current_project_name'] = target_folder['name']
+                        st.session_state['current_project_id'] = target_folder['id']
+                        st.session_state['project_data'] = dataframes
+                        
+                        st.balloons()
+                        
+                        for nombre, df in dataframes.items():
+                            with st.expander(t("preview_expander", name=nombre, rows=len(df))):
+                                st.dataframe(df.head())
+                                
         except FileNotFoundError as e:
             st.error(f"Error: {e}")
         except Exception as e:

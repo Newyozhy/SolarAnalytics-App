@@ -57,9 +57,13 @@
   "exploring_folder": "正在探索 {folder}...",
   "folders_found": "找到的文件夹:",
   "btn_open_folder": "📂 打开此文件夹",
-  "btn_process_project": "🚀 作为项目处理",
+  "btn_process_project": "开始分析",
   "empty_folder": "此文件夹为空或没有子文件夹。",
-  "btn_process_this_folder": "🚀 将此文件夹作为项目处理",
+  "btn_process_this_folder": "分析此文件夹",
   "search_root": "正在搜索根文件夹...",
-  "root_not_found": "未找到根文件夹。"
+  "root_not_found": "未找到根文件夹。",
+  "view_mode": "视图:",
+  "view_grid": "网格 (Grid)",
+  "view_list": "列表 (List)",
+  "downloading_spinner_cache": "正在检查缓存或下载 {project}..."
 }

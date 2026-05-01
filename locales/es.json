@@ -57,9 +57,13 @@
   "exploring_folder": "Explorando {folder}...",
   "folders_found": "Carpetas encontradas:",
   "btn_open_folder": "📂 Abrir esta Carpeta",
-  "btn_process_project": "🚀 Procesar como Proyecto",
+  "btn_process_project": "Iniciar Análisis",
   "empty_folder": "Esta carpeta está vacía o no tiene subcarpetas.",
-  "btn_process_this_folder": "🚀 Procesar esta carpeta como Proyecto",
+  "btn_process_this_folder": "Analizar esta carpeta",
   "search_root": "Buscando carpeta raíz...",
-  "root_not_found": "No se encontró la carpeta raíz."
+  "root_not_found": "No se encontró la carpeta raíz.",
+  "view_mode": "Vista:",
+  "view_grid": "Cuadrícula (Grid)",
+  "view_list": "Lista (Detalles)",
+  "downloading_spinner_cache": "Comprobando caché o descargando {project}..."
 }
