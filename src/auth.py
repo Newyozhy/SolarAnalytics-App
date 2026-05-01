@@ -20,13 +20,13 @@ def login():
         
         if submit_button:
             try:
-                response = supabase.auth.signInWithPassword({"email": email, "password": password})
+                response = supabase.auth.signInWithPassword({"email": email.strip(), "password": password})
                 if response.user:
                     st.session_state.user = response.user
                     st.success("¡Inicio de sesión exitoso!")
                     st.rerun()
             except Exception as e:
-                st.error(f"Error al iniciar sesión: Credenciales incorrectas o usuario no encontrado.")
+                st.error(f"Error al iniciar sesión: Credenciales incorrectas. (Detalle: {str(e)})")
 
 def logout():
     if supabase:
