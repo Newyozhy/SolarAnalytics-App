@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import {
   Loader2, FileDown, X, Zap, Battery, TrendingUp, Clock,
-  CheckCircle2, AlertCircle
+  CheckCircle2, AlertCircle, History
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { FolderTree } from '@/components/explorer/FolderTree';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { projectsApi } from '@/api/projects';
 import type { Folder } from '@/api/projects';
+import { useProjectCache } from '@/hooks/useProjectCache';
 import Plot from 'react-plotly.js';
 import { cn } from '@/lib/utils';
 
@@ -40,7 +41,8 @@ function KpiCard({ icon: Icon, label, value, color }: { icon: any, label: string
 const processingSteps = [
   { key: 'downloading', label: 'Descargando datos de Drive' },
   { key: 'processing', label: 'Analizando CSVs' },
-  { key: 'completed', label: 'Generando reportes' },
+  { key: 'saving', label: 'Guardando en caché' },
+  { key: 'completed', label: 'Completado' },
 ];
 
 export function ProjectsPage() {
@@ -57,6 +59,9 @@ export function ProjectsPage() {
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Cache
+  const { cacheMap, loadCacheStatus, loadCachedResult, invalidate } = useProjectCache();
+
   // Processing
   const [processingFolder, setProcessingFolder] = useState<Folder | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -64,6 +69,7 @@ export function ProjectsPage() {
   const [jobResult, setJobResult] = useState<any>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
 
   // Load folders at current breadcrumb level
   const loadFolders = useCallback(async (parentId: string) => {
@@ -75,17 +81,32 @@ export function ProjectsPage() {
       const folders = res.folders || [];
       setCurrentFolders(folders);
       if (parentId === 'root') setRootFolders(folders);
+      // Load cache status for the visible folders in parallel
+      if (folders.length > 0) {
+        loadCacheStatus(folders.map(f => f.id));
+      }
     } catch {
       setCurrentFolders([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadCacheStatus]);
 
   useEffect(() => {
     const current = breadcrumbs[breadcrumbs.length - 1];
     loadFolders(current.id);
   }, [breadcrumbs, loadFolders]);
+
+  // Load cached result instantly from Supabase (no processing needed)
+  const handleViewCached = useCallback(async (folder: Folder) => {
+    const cached = await loadCachedResult(folder.id);
+    if (cached?.result_json) {
+      setJobResult(cached.result_json);
+      setProcessingFolder(folder);
+      setFromCache(true);
+      setShowResults(true);
+    }
+  }, [loadCachedResult]);
 
   const handleNavigate = (folder: Folder) => {
     setSelectedFolder(null);
@@ -135,8 +156,14 @@ export function ProjectsPage() {
         if (data.status === 'completed') {
           clearInterval(interval);
           setJobResult(data.result);
+          setFromCache(data.from_cache ?? false);
           setJobId(null);
           setShowResults(true);
+          // Refresh cache badge for this folder
+          if (processingFolder) {
+            invalidate(processingFolder.id);
+            loadCacheStatus(currentFolders.map(f => f.id));
+          }
         } else if (data.status === 'failed') {
           clearInterval(interval);
           setJobError(data.error || 'Error desconocido');
@@ -146,7 +173,7 @@ export function ProjectsPage() {
       } catch {}
     }, 3000);
     return () => clearInterval(interval);
-  }, [jobId]);
+  }, [jobId, processingFolder, invalidate, loadCacheStatus, currentFolders]);
 
   const filteredFolders = currentFolders.filter(f =>
     f.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -192,13 +219,21 @@ export function ProjectsPage() {
             >
               {/* Header */}
               <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="font-display text-2xl font-bold text-foreground">
-                    {jobResult.project_name}
-                  </h1>
-                  <p className="text-sm text-muted-foreground mt-0.5">Reporte de análisis solar</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h1 className="font-display text-2xl font-bold text-foreground">
+                      {jobResult.project_name}
+                    </h1>
+                    {fromCache && (
+                      <span className="flex items-center gap-1 text-[11px] font-medium text-[#00A86B] bg-[#00A86B]/10 border border-[#00A86B]/25 rounded-full px-2.5 py-0.5">
+                        <History className="w-3 h-3" />
+                        Desde caché
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Reporte de análisis solar</p>
                 </div>
-                <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { setShowResults(false); setJobResult(null); }}>
+                <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { setShowResults(false); setJobResult(null); setFromCache(false); }}>
                   <X className="w-4 h-4" /> Cerrar
                 </Button>
               </div>
@@ -285,6 +320,13 @@ export function ProjectsPage() {
               onSelect={setSelectedFolder}
               onNavigate={handleNavigate}
               onProcess={handleProcess}
+              onViewCached={handleViewCached}
+              processedMap={Object.fromEntries(
+                Object.entries(cacheMap).map(([id, v]) => [
+                  id,
+                  { processedAt: new Date(v.processed_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) }
+                ])
+              )}
             />
           )}
         </div>
@@ -295,9 +337,8 @@ export function ProjectsPage() {
         {(!!jobId || !!jobError) && (
           <Dialog open onOpenChange={() => {}}>
             <DialogContent
-              className="sm:max-w-sm [&>button]:hidden"
-              onInteractOutside={e => e.preventDefault()}
-              onEscapeKeyDown={e => e.preventDefault()}
+              className="sm:max-w-sm"
+              showCloseButton={false}
             >
               <DialogHeader>
                 <DialogTitle className="text-base font-display">

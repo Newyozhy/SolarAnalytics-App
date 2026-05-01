@@ -65,11 +65,9 @@ function LanguageSelector() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1.5 h-8 px-2.5 text-muted-foreground hover:text-foreground">
-          <Globe className="w-3.5 h-3.5" />
-          <span className="text-xs font-medium">{current.flag} {current.code.toUpperCase()}</span>
-        </Button>
+      <DropdownMenuTrigger className="flex items-center gap-1.5 h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-muted/50 transition-colors outline-none">
+        <Globe className="w-3.5 h-3.5" />
+        <span>{current.flag} {current.code.toUpperCase()}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-36">
         {LANGUAGES.map(lang => (

@@ -20,9 +20,10 @@ export interface JobResponse {
 }
 
 export interface JobStatusResponse {
-  status: 'pending' | 'downloading' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'downloading' | 'processing' | 'saving' | 'completed' | 'failed';
   result?: any;
   error?: string;
+  from_cache?: boolean;
 }
 
 export const projectsApi = {

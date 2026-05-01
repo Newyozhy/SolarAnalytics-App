@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import type { Variants } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import {
   Folder, FolderOpen, LayoutGrid, List as ListIcon,
@@ -23,10 +24,11 @@ interface FolderContentProps {
   onSelect: (folder: FolderType) => void;
   onNavigate: (folder: FolderType) => void;
   onProcess: (folder: FolderType) => void;
+  onViewCached?: (folder: FolderType) => void;
   processedMap?: Record<string, ProcessedStatus>;
 }
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 8, scale: 0.97 },
   visible: (i: number) => ({
     opacity: 1, y: 0, scale: 1,
@@ -36,7 +38,7 @@ const cardVariants = {
 
 function FolderCard({
   folder, index, isSelected, isProcessed, processedAt,
-  onSelect, onNavigate, onProcess,
+  onSelect, onNavigate, onProcess, onViewCached,
 }: {
   folder: FolderType;
   index: number;
@@ -46,6 +48,7 @@ function FolderCard({
   onSelect: (f: FolderType) => void;
   onNavigate: (f: FolderType) => void;
   onProcess: (f: FolderType) => void;
+  onViewCached?: (f: FolderType) => void;
 }) {
   const { t } = useTranslation();
 
@@ -105,24 +108,49 @@ function FolderCard({
         'border-t px-2 py-2 flex gap-1',
         isSelected ? 'border-zte-blue/20 bg-zte-blue/5' : 'border-border bg-muted/20'
       )}>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="flex-1 h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-          onClick={e => { e.stopPropagation(); onNavigate(folder); }}
-        >
-          <FolderOpen className="w-3 h-3" />
-          {t('explorer.open')}
-        </Button>
-        <Button
-          size="sm"
-          className="flex-1 h-7 text-xs gap-1"
-          style={{ background: 'var(--zte-blue)', color: 'white' }}
-          onClick={e => { e.stopPropagation(); onProcess(folder); }}
-        >
-          <Play className="w-3 h-3" />
-          {t('explorer.process')}
-        </Button>
+        {isProcessed ? (
+          <>
+            <Button
+              size="sm"
+              className="flex-1 h-7 text-xs gap-1"
+              style={{ background: 'var(--zte-green, #00A86B)', color: 'white' }}
+              onClick={e => { e.stopPropagation(); onViewCached?.(folder); }}
+            >
+              <CheckCircle2 className="w-3 h-3" />
+              Ver Resultados
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs px-2 text-muted-foreground"
+              title="Volver a procesar"
+              onClick={e => { e.stopPropagation(); onProcess(folder); }}
+            >
+              ↺
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+              onClick={e => { e.stopPropagation(); onNavigate(folder); }}
+            >
+              <FolderOpen className="w-3 h-3" />
+              {t('explorer.open')}
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1 h-7 text-xs gap-1"
+              style={{ background: 'var(--zte-blue)', color: 'white' }}
+              onClick={e => { e.stopPropagation(); onProcess(folder); }}
+            >
+              <Play className="w-3 h-3" />
+              {t('explorer.process')}
+            </Button>
+          </>
+        )}
       </div>
     </motion.div>
   );
@@ -130,7 +158,7 @@ function FolderCard({
 
 export function FolderContent({
   folders, loading, viewMode, onViewModeChange,
-  selectedId, onSelect, onNavigate, onProcess, processedMap = {}
+  selectedId, onSelect, onNavigate, onProcess, onViewCached, processedMap = {}
 }: FolderContentProps) {
   const { t } = useTranslation();
 
@@ -190,6 +218,7 @@ export function FolderContent({
                   onSelect={onSelect}
                   onNavigate={onNavigate}
                   onProcess={onProcess}
+                  onViewCached={onViewCached}
                 />
               ))}
             </AnimatePresence>
@@ -228,21 +257,44 @@ export function FolderContent({
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                      <Button
-                        variant="ghost" size="sm"
-                        className="h-7 text-xs gap-1 text-muted-foreground"
-                        onClick={e => { e.stopPropagation(); onNavigate(folder); }}
-                      >
-                        <FolderOpen className="w-3 h-3" /> Abrir
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs gap-1"
-                        style={{ background: 'var(--zte-blue)', color: 'white' }}
-                        onClick={e => { e.stopPropagation(); onProcess(folder); }}
-                      >
-                        <Play className="w-3 h-3" /> Procesar
-                      </Button>
+                      {isProcessed ? (
+                        <>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            style={{ background: '#00A86B', color: 'white' }}
+                            onClick={e => { e.stopPropagation(); onViewCached?.(folder); }}
+                          >
+                            <CheckCircle2 className="w-3 h-3" /> Ver
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-7 text-xs px-2 text-muted-foreground"
+                            title="Reprocesar"
+                            onClick={e => { e.stopPropagation(); onProcess(folder); }}
+                          >
+                            ↺
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-7 text-xs gap-1 text-muted-foreground"
+                            onClick={e => { e.stopPropagation(); onNavigate(folder); }}
+                          >
+                            <FolderOpen className="w-3 h-3" /> Abrir
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            style={{ background: 'var(--zte-blue)', color: 'white' }}
+                            onClick={e => { e.stopPropagation(); onProcess(folder); }}
+                          >
+                            <Play className="w-3 h-3" /> Procesar
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </motion.div>
                 );

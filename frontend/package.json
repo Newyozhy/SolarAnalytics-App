@@ -12,6 +12,7 @@
   "dependencies": {
     "@base-ui/react": "^1.4.1",
     "@fontsource-variable/geist": "^5.2.8",
+    "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/vite": "^4.2.4",
     "@types/react-plotly.js": "^2.6.4",
     "axios": "^1.15.2",
