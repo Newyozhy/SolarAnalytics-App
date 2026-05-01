@@ -3,23 +3,25 @@ Supabase REST API client — sin dependencias extra.
 Usa httpx (ya disponible en el entorno) para llamar la PostgREST API de Supabase.
 Esto evita la dependencia de pyiceberg que causa problemas en Windows.
 """
-import os
-import json
 import logging
-from typing import Optional, Any
+from typing import Optional
 
 import httpx
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
-def _headers(service_role: bool = False) -> dict:
+def _is_configured() -> bool:
+    return bool(settings.SUPABASE_URL and settings.SUPABASE_KEY)
+
+
+def _headers() -> dict:
     """Headers para autenticarse en la PostgREST API de Supabase."""
     return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
@@ -29,12 +31,12 @@ def get_cached_project(folder_id: str) -> Optional[dict]:
     Consulta si un proyecto ya fue procesado.
     Retorna el registro completo si existe, o None si no.
     """
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    if not _is_configured():
         logger.warning("Supabase no configurado — caché deshabilitado")
         return None
 
     try:
-        url = f"{SUPABASE_URL}/rest/v1/processed_projects"
+        url = f"{settings.SUPABASE_URL}/rest/v1/processed_projects"
         params = {
             "folder_id": f"eq.{folder_id}",
             "select": "id,folder_id,folder_name,processed_at,result_json,metadata",
@@ -60,12 +62,12 @@ def save_project_result(
     Guarda (o actualiza si ya existe) el resultado de un proyecto en Supabase.
     Usa UPSERT por folder_id para evitar duplicados.
     """
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    if not _is_configured():
         logger.warning("Supabase no configurado — no se guardará el resultado")
         return False
 
     try:
-        url = f"{SUPABASE_URL}/rest/v1/processed_projects"
+        url = f"{settings.SUPABASE_URL}/rest/v1/processed_projects"
         payload = {
             "folder_id": folder_id,
             "folder_name": folder_name,
@@ -91,11 +93,11 @@ def list_cached_projects(limit: int = 20) -> list:
     Retorna los proyectos procesados más recientes (sin el result_json completo).
     Útil para el panel 'Proyectos Recientes'.
     """
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    if not _is_configured():
         return []
 
     try:
-        url = f"{SUPABASE_URL}/rest/v1/processed_projects"
+        url = f"{settings.SUPABASE_URL}/rest/v1/processed_projects"
         params = {
             "select": "id,folder_id,folder_name,processed_at,metadata",
             "order": "processed_at.desc",
