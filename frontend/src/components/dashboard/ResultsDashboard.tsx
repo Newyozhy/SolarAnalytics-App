@@ -6,9 +6,13 @@ import {
   Clock, Sun, BarChart3, Activity, X, History, FileDown,
   ArrowUp, ArrowDown, Minus
 } from 'lucide-react';
-import Plot from 'react-plotly.js';
+import PlotlyChart from 'react-plotly.js';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+// Safe interop: react-plotly.js is CJS — get the actual React component
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -46,7 +50,7 @@ interface ResultsDashboardProps {
 
 // ─── Shared Plotly layout base ────────────────────────────────────────────
 
-const baseLayout: Partial<Plotly.Layout> = {
+const baseLayout: Record<string, any> = {
   autosize: true,
   margin: { t: 12, r: 12, l: 46, b: 48 },
   paper_bgcolor: 'transparent',
@@ -76,7 +80,7 @@ const baseLayout: Partial<Plotly.Layout> = {
   },
 };
 
-const plotConfig: Partial<Plotly.Config> = {
+const plotConfig = {
   responsive: true,
   displayModeBar: false,
 };
@@ -202,7 +206,7 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
   // ── Chart data ──
 
   // Generation bar chart
-  const genChartData: Plotly.Data[] = useMemo(() => {
+  const genChartData: any[] = useMemo(() => {
     const daily = result.daily_generation ?? [];
     if (!daily.length) return [];
     return [{
@@ -223,7 +227,7 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
   }, [result.daily_generation]);
 
   // Duration area chart
-  const durationChartData: Plotly.Data[] = useMemo(() => {
+  const durationChartData: any[] = useMemo(() => {
     const daily = result.daily_generation ?? [];
     if (!daily.length) return [];
     return [{
@@ -240,7 +244,7 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
   }, [result.daily_generation]);
 
   // Battery SOC multi-device
-  const batteryChartData: Plotly.Data[] = useMemo(() => {
+  const batteryChartData: any[] = useMemo(() => {
     const soc = result.battery_soc ?? [];
     if (!soc.length) return [];
     const devices = [...new Set(soc.map(d => d.device_name))].slice(0, 6);
@@ -257,12 +261,12 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
         y: rows.map(d => d.value ?? 0),
         line: { color: colors[i % colors.length], width: 2, shape: 'spline' },
         hovertemplate: `<b>${device}</b><br>%{x}<br>SOC: %{y:.1f}%<extra></extra>`,
-      } as Plotly.Data;
+      };
     });
   }, [result.battery_soc]);
 
   // Daily load consumption
-  const loadChartData: Plotly.Data[] = useMemo(() => {
+  const loadChartData: any[] = useMemo(() => {
     const load = result.daily_load ?? [];
     if (!load.length) return [];
     return [{
@@ -372,7 +376,7 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
                   ...baseLayout,
                   yaxis: { ...baseLayout.yaxis, title: { text: 'kWh', font: { size: 11 } } },
                   bargap: 0.25,
-                } as Partial<Plotly.Layout>}
+                }}
                 useResizeHandler
                 style={{ width: '100%', height: '100%' }}
                 config={plotConfig}
@@ -392,7 +396,7 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
                 layout={{
                   ...baseLayout,
                   yaxis: { ...baseLayout.yaxis, title: { text: 'Horas', font: { size: 11 } } },
-                } as Partial<Plotly.Layout>}
+                }}
                 useResizeHandler
                 style={{ width: '100%', height: '100%' }}
                 config={plotConfig}
@@ -419,7 +423,7 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
                     ticksuffix: '%',
                   },
                   legend: { ...baseLayout.legend, x: 1, xanchor: 'right', y: 1 },
-                } as Partial<Plotly.Layout>}
+                }}
                 useResizeHandler
                 style={{ width: '100%', height: '100%' }}
                 config={plotConfig}
@@ -440,7 +444,7 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
                   ...baseLayout,
                   yaxis: { ...baseLayout.yaxis, title: { text: 'kWh', font: { size: 11 } } },
                   bargap: 0.3,
-                } as Partial<Plotly.Layout>}
+                }}
                 useResizeHandler
                 style={{ width: '100%', height: '100%' }}
                 config={plotConfig}
