@@ -131,7 +131,8 @@ def main():
         else:
             proyecto_actual = st.session_state.get('current_project_name')
             project_id = st.session_state.get('current_project_id')
-            user_email = st.session_state.get('user', {}).get('email', 'desconocido@app.com')
+            user_obj = st.session_state.get('user')
+            user_email = user_obj.email if user_obj else 'desconocido@app.com'
             
             st.write(f"Proyecto listo para exportar: **{proyecto_actual}**")
             

@@ -15,7 +15,7 @@ def plot_daily_generation(daily_df):
         title='Generación Solar Diaria (kWh)',
         labels={'date': 'Fecha', 'total_generation_kwh': 'Energía Generada (kWh)'},
         color='total_generation_kwh',
-        color_continuous_scale='Sun'
+        color_continuous_scale='solar'
     )
     
     fig.update_layout(
