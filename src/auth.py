@@ -20,7 +20,7 @@ def login():
         
         if submit_button:
             try:
-                response = supabase.auth.signInWithPassword({"email": email.strip(), "password": password})
+                response = supabase.auth.sign_in_with_password({"email": email.strip(), "password": password})
                 if response.user:
                     st.session_state.user = response.user
                     st.success("¡Inicio de sesión exitoso!")
@@ -30,7 +30,7 @@ def login():
 
 def logout():
     if supabase:
-        supabase.auth.signOut()
+        supabase.auth.sign_out()
     st.session_state.user = None
     st.rerun()
 
