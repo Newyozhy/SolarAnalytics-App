@@ -1,5 +1,6 @@
 import os
 import io
+import pathlib
 import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -8,19 +9,39 @@ from fastapi import HTTPException
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
+# Ruta absoluta a la raíz del proyecto (SolarApp/)
+_PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[4]
+
+
 def get_drive_service():
     """Autentica y retorna el servicio de Google Drive."""
-    # En FastAPI, usaremos variables de entorno nativas en lugar de st.secrets
-    creds_path = os.environ.get('GOOGLE_CREDENTIALS_JSON_PATH', 'solarapp-drive-5a7a621a3732.json')
-    
-    if not os.path.exists(creds_path):
-        # Intentar buscar en el directorio padre por si se ejecuta desde backend/
-        parent_path = os.path.join("..", creds_path)
-        if os.path.exists(parent_path):
-            creds_path = parent_path
-        else:
-            raise HTTPException(status_code=500, detail=f"No se encontró el archivo de credenciales de Google Drive en {creds_path}")
-        
+    # Nombre del archivo de credenciales (desde .env o fallback)
+    creds_filename = os.environ.get(
+        'GOOGLE_CREDENTIALS_JSON_PATH',
+        'solarapp-drive-5a7a621a3732.json'
+    )
+
+    # Buscar en orden: ruta absoluta → project_root/filename → CWD → CWD/../
+    candidates = [
+        pathlib.Path(creds_filename),                    # si es ruta absoluta
+        _PROJECT_ROOT / creds_filename,                  # SolarApp/filename
+        pathlib.Path.cwd() / creds_filename,             # CWD/filename
+        pathlib.Path.cwd().parent / creds_filename,      # CWD/../filename
+    ]
+
+    creds_path = None
+    for candidate in candidates:
+        if candidate.exists():
+            creds_path = str(candidate)
+            break
+
+    if not creds_path:
+        searched = '\n  '.join(str(c) for c in candidates)
+        raise HTTPException(
+            status_code=500,
+            detail=f"No se encontró el archivo de credenciales. Buscado en:\n  {searched}"
+        )
+
     creds = service_account.Credentials.from_service_account_file(
         creds_path, scopes=SCOPES)
     service = build('drive', 'v3', credentials=creds)
