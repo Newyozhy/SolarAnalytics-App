@@ -17,14 +17,34 @@ def _is_configured() -> bool:
     return bool(settings.SUPABASE_URL and settings.SUPABASE_KEY)
 
 
-def _headers() -> dict:
-    """Headers para autenticarse en la PostgREST API de Supabase."""
+def _read_headers() -> dict:
+    """Headers con anon key — para lecturas (respeta RLS pública)."""
     return {
         "apikey": settings.SUPABASE_KEY,
         "Authorization": f"Bearer {settings.SUPABASE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "return=representation",
     }
+
+
+def _write_headers() -> dict:
+    """
+    Headers con service_role key — para escrituras (bypasea RLS).
+    Si no hay service_role, cae de vuelta al anon key (puede fallar con 401
+    si la política RLS lo requiere).
+    """
+    key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_KEY
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+
+# Alias para compatibilidad hacia atrás
+def _headers() -> dict:
+    return _read_headers()
 
 def get_cached_project(folder_id: str) -> Optional[dict]:
     """
@@ -61,6 +81,7 @@ def save_project_result(
     """
     Guarda (o actualiza si ya existe) el resultado de un proyecto en Supabase.
     Usa UPSERT por folder_id para evitar duplicados.
+    Usa service_role key para bypasear RLS.
     """
     if not _is_configured():
         logger.warning("Supabase no configurado — no se guardará el resultado")
@@ -74,14 +95,16 @@ def save_project_result(
             "result_json": result,
             "metadata": metadata or {},
         }
-        headers = _headers()
-        # Upsert: si ya existe folder_id, actualiza en lugar de insertar
+        # Upsert con service_role key (bypasea la política RLS de escritura)
+        headers = _write_headers()
         headers["Prefer"] = "resolution=merge-duplicates,return=representation"
 
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=15.0) as client:
             resp = client.post(url, headers=headers, json=payload)
-            resp.raise_for_status()
-            logger.info(f"Proyecto '{folder_name}' guardado en Supabase caché")
+            if not resp.is_success:
+                logger.error(f"Supabase UPSERT falló [{resp.status_code}]: {resp.text[:300]}")
+                return False
+            logger.info(f"Proyecto '{folder_name}' guardado en Supabase caché ✓")
             return True
     except Exception as e:
         logger.error(f"Error guardando en Supabase: {e}")

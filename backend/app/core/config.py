@@ -11,7 +11,8 @@ class Settings(BaseSettings):
 
     # Supabase cache
     SUPABASE_URL: str = ""
-    SUPABASE_KEY: str = ""
+    SUPABASE_KEY: str = ""           # anon key — frontend reads
+    SUPABASE_SERVICE_KEY: str = ""   # service_role key — backend writes (bypasses RLS)
 
     # Google credentials path
     GOOGLE_CREDENTIALS_JSON_PATH: str = "credentials.json"
