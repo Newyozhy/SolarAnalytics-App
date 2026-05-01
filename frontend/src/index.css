@@ -1,0 +1,240 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+/* ═══════════════════════════════════════════════
+   ZTE BRAND TOKENS — Light Mode (default)
+═══════════════════════════════════════════════ */
+:root {
+  /* ZTE Official Blue Palette */
+  --zte-blue: #008ED3;
+  --zte-blue-hover: #006FA8;
+  --zte-blue-light: #E6F5FC;
+  --zte-blue-glow: rgba(0, 142, 211, 0.15);
+
+  /* ZTE Green (energy/success) */
+  --zte-green: #00A86B;
+  --zte-green-light: rgba(0, 168, 107, 0.1);
+
+  /* Shadcn/ui tokens mapped to ZTE brand — LIGHT */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.13 0.01 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.13 0.01 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0.01 250);
+  --primary: #008ED3;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.005 220);
+  --secondary-foreground: oklch(0.25 0.02 250);
+  --muted: oklch(0.96 0.004 220);
+  --muted-foreground: oklch(0.52 0.02 240);
+  --accent: #E6F5FC;
+  --accent-foreground: #006FA8;
+  --destructive: oklch(0.57 0.23 27);
+  --border: oklch(0.91 0.006 240);
+  --input: oklch(0.91 0.006 240);
+  --ring: #008ED3;
+  --radius: 0.625rem;
+
+  /* Sidebar tokens — Light */
+  --sidebar: oklch(0.98 0.003 220);
+  --sidebar-foreground: oklch(0.25 0.02 250);
+  --sidebar-primary: #008ED3;
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: #E6F5FC;
+  --sidebar-accent-foreground: #006FA8;
+  --sidebar-border: oklch(0.91 0.006 240);
+  --sidebar-ring: #008ED3;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.07);
+  --shadow-zte: 0 4px 20px rgba(0, 142, 211, 0.15);
+  --shadow-zte-lg: 0 8px 32px rgba(0, 142, 211, 0.20);
+}
+
+/* ═══════════════════════════════════════════════
+   ZTE BRAND TOKENS — Dark Mode
+═══════════════════════════════════════════════ */
+.dark {
+  /* Shadcn/ui tokens — DARK */
+  --background: #0D1117;
+  --foreground: oklch(0.93 0.005 240);
+  --card: #161B22;
+  --card-foreground: oklch(0.93 0.005 240);
+  --popover: #161B22;
+  --popover-foreground: oklch(0.93 0.005 240);
+  --primary: #008ED3;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: #21262D;
+  --secondary-foreground: oklch(0.85 0.005 240);
+  --muted: #21262D;
+  --muted-foreground: oklch(0.58 0.015 240);
+  --accent: rgba(0, 142, 211, 0.12);
+  --accent-foreground: #59B6E0;
+  --destructive: oklch(0.68 0.20 22);
+  --border: #21262D;
+  --input: #21262D;
+  --ring: #008ED3;
+
+  /* Sidebar tokens — Dark */
+  --sidebar: #0D1117;
+  --sidebar-foreground: oklch(0.85 0.005 240);
+  --sidebar-primary: #008ED3;
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: rgba(0, 142, 211, 0.12);
+  --sidebar-accent-foreground: #59B6E0;
+  --sidebar-border: #21262D;
+  --sidebar-ring: #008ED3;
+
+  /* Shadows — Dark (blueish glow) */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+  --shadow-zte: 0 4px 20px rgba(0, 142, 211, 0.20);
+  --shadow-zte-lg: 0 8px 40px rgba(0, 142, 211, 0.25);
+}
+
+/* ═══════════════════════════════════════════════
+   THEME INLINE MAPPING (Tailwind v4)
+═══════════════════════════════════════════════ */
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'DM Sans', 'Inter', sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-zte-blue: var(--zte-blue);
+  --color-zte-blue-hover: var(--zte-blue-hover);
+  --color-zte-blue-light: var(--zte-blue-light);
+  --color-zte-green: var(--zte-green);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.85);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 2);
+}
+
+/* ═══════════════════════════════════════════════
+   BASE LAYER
+═══════════════════════════════════════════════ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html {
+    @apply font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Prevent flash on dark mode init */
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  /* Scrollbar — Dark */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+
+  /* Focus ring refinement */
+  :focus-visible {
+    outline: 2px solid var(--zte-blue);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Selection color */
+  ::selection {
+    background: var(--zte-blue-glow);
+    color: var(--foreground);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════════ */
+@layer utilities {
+  .shadow-zte { box-shadow: var(--shadow-zte); }
+  .shadow-zte-lg { box-shadow: var(--shadow-zte-lg); }
+  .font-display { font-family: var(--font-display); }
+  .bg-zte-glow { background: var(--zte-blue-glow); }
+  .border-zte { border-color: var(--zte-blue); }
+  .text-zte { color: var(--zte-blue); }
+
+  /* Glass card effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Gradient text ZTE */
+  .text-gradient-zte {
+    background: linear-gradient(135deg, #008ED3, #00C4FF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

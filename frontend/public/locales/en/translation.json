@@ -1,0 +1,48 @@
+{
+  "nav": {
+    "projects": "Projects",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "explorer": {
+    "title": "Project Explorer",
+    "search": "Search projects...",
+    "process": "Process",
+    "open": "Open",
+    "back": "Back",
+    "noFolders": "No folders found",
+    "lastProcessed": "Processed",
+    "notProcessed": "Not processed",
+    "items": "item",
+    "items_plural": "items"
+  },
+  "processing": {
+    "title": "Processing Project",
+    "downloading": "Downloading data...",
+    "analyzing": "Analyzing data...",
+    "generating": "Generating reports...",
+    "complete": "Processing complete!",
+    "error": "Processing error"
+  },
+  "dashboard": {
+    "totalEnergy": "Total Energy",
+    "dailyAverage": "Daily Average",
+    "bestDay": "Best Day",
+    "uptime": "Uptime",
+    "download": "Download",
+    "downloadExcel": "Download Excel",
+    "downloadPptx": "Download PPTX",
+    "closeReport": "Close Report",
+    "dailyGeneration": "Daily Generation (kWh)",
+    "batterySoc": "Battery State of Charge (%)"
+  },
+  "theme": {
+    "light": "Light Mode",
+    "dark": "Dark Mode"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "zh": "中文"
+  }
+}

@@ -7,6 +7,9 @@ env/
 # Archivos de credenciales y secretos (¡NUNCA SUBIR A GITHUB!)
 .env
 credentials.json
+*-drive-*.json
+solarapp-*.json
+*.service-account.json
 
 # Archivos compilados de Python
 __pycache__/

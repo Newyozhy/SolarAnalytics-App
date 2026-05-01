@@ -1,0 +1,48 @@
+{
+  "nav": {
+    "projects": "Proyectos",
+    "reports": "Reportes",
+    "settings": "Configuración"
+  },
+  "explorer": {
+    "title": "Explorador de Proyectos",
+    "search": "Buscar proyectos...",
+    "process": "Procesar",
+    "open": "Abrir",
+    "back": "Atrás",
+    "noFolders": "No se encontraron carpetas",
+    "lastProcessed": "Procesado hace",
+    "notProcessed": "Sin procesar",
+    "items": "elemento",
+    "items_plural": "elementos"
+  },
+  "processing": {
+    "title": "Procesando Proyecto",
+    "downloading": "Descargando datos...",
+    "analyzing": "Analizando información...",
+    "generating": "Generando reportes...",
+    "complete": "¡Procesamiento completado!",
+    "error": "Error al procesar"
+  },
+  "dashboard": {
+    "totalEnergy": "Energía Total",
+    "dailyAverage": "Promedio Diario",
+    "bestDay": "Mejor Día",
+    "uptime": "Disponibilidad",
+    "download": "Descargar",
+    "downloadExcel": "Descargar Excel",
+    "downloadPptx": "Descargar PPTX",
+    "closeReport": "Cerrar Reporte",
+    "dailyGeneration": "Generación Diaria (kWh)",
+    "batterySoc": "Estado de Batería (SOC %)"
+  },
+  "theme": {
+    "light": "Modo Claro",
+    "dark": "Modo Oscuro"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "zh": "中文"
+  }
+}

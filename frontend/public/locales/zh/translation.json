@@ -1,0 +1,48 @@
+{
+  "nav": {
+    "projects": "项目",
+    "reports": "报告",
+    "settings": "设置"
+  },
+  "explorer": {
+    "title": "项目浏览器",
+    "search": "搜索项目...",
+    "process": "处理",
+    "open": "打开",
+    "back": "返回",
+    "noFolders": "未找到文件夹",
+    "lastProcessed": "已处理",
+    "notProcessed": "未处理",
+    "items": "项",
+    "items_plural": "项"
+  },
+  "processing": {
+    "title": "正在处理项目",
+    "downloading": "正在下载数据...",
+    "analyzing": "正在分析数据...",
+    "generating": "正在生成报告...",
+    "complete": "处理完成！",
+    "error": "处理错误"
+  },
+  "dashboard": {
+    "totalEnergy": "总电量",
+    "dailyAverage": "日均",
+    "bestDay": "最佳日",
+    "uptime": "可用性",
+    "download": "下载",
+    "downloadExcel": "下载Excel",
+    "downloadPptx": "下载PPTX",
+    "closeReport": "关闭报告",
+    "dailyGeneration": "日发电量 (kWh)",
+    "batterySoc": "电池荷电状态 (%)"
+  },
+  "theme": {
+    "light": "浅色模式",
+    "dark": "深色模式"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "zh": "中文"
+  }
+}

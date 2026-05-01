@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: solarapp-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GOOGLE_CREDENTIALS_JSON_PATH
+        value: credentials.json
+      # NOTE: For production, you will need to upload your credentials.json securely.
+      # You can also encode it in base64 and decode it on startup.
