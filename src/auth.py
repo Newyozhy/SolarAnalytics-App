@@ -1,22 +1,23 @@
 import streamlit as st
 from .supabase_client import supabase
+from .i18n import t
 
 def init_session_state():
     if "user" not in st.session_state:
         st.session_state.user = None
 
 def login():
-    st.title("Sistema de Análisis Solar")
-    st.subheader("Iniciar Sesión")
+    st.title(t("app_title"))
+    st.subheader(t("login_title"))
     
     if supabase is None:
-        st.error("Error de configuración de la base de datos. Contacta al administrador.")
+        st.error("Error de configuración de la base de datos.")
         return
 
     with st.form("login_form"):
-        email = st.text_input("Correo electrónico")
-        password = st.text_input("Contraseña", type="password")
-        submit_button = st.form_submit_button("Ingresar")
+        email = st.text_input(t("email_label"))
+        password = st.text_input(t("password_label"), type="password")
+        submit_button = st.form_submit_button(t("login_btn"))
         
         if submit_button:
             try:
@@ -43,6 +44,6 @@ def render_login_ui():
     else:
         # El usuario está logueado, mostrar el botón de cerrar sesión en la barra lateral
         with st.sidebar:
-            st.write(f"Usuario: {st.session_state.user.email}")
-            if st.button("Cerrar Sesión"):
+            st.write(f"**{t('user_label')}**: {st.session_state.user.email}")
+            if st.button(t("logout_btn")):
                 logout()

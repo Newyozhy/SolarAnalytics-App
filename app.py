@@ -5,44 +5,102 @@ from src.data_processing import clean_solar_work_rec, get_daily_generation, clea
 from src.visualizations import plot_daily_generation, plot_battery_soc
 from src.report_generator import generate_excel, generate_pptx
 from src.supabase_client import log_export_operation
+from src.i18n import t, render_language_selector
 import tempfile
 import os
-# Configuración básica de la página de Streamlit
+
 st.set_page_config(
-    page_title="Dashboard Solar",
+    page_title="ZTE Solar Analytics",
     page_icon="☀️",
     layout="wide"
 )
 
+def apply_zte_branding():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Ocultar marca de agua de Streamlit */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+        
+        /* Estilos de botones primarios ZTE */
+        .stButton>button[kind="primary"] {
+            background-color: #005BAB !important;
+            color: white !important;
+            border-radius: 8px !important;
+            border: none !important;
+            transition: all 0.3s ease;
+        }
+        .stButton>button[kind="primary"]:hover {
+            background-color: #00A6CE !important;
+            box-shadow: 0 4px 12px rgba(0, 166, 206, 0.4);
+        }
+        
+        /* Tarjetas de métricas */
+        div[data-testid="stMetric"] {
+            background-color: rgba(0, 91, 171, 0.05);
+            border-left: 4px solid #005BAB;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
 def main():
-    # Renderizar la interfaz de login. 
-    # Si el usuario no está logueado, esto detendrá la ejecución aquí.
+    apply_zte_branding()
+    
+    # Login UI
     render_login_ui()
     
     # --- A PARTIR DE AQUÍ SOLO ACCEDEN USUARIOS AUTENTICADOS ---
     
-    st.title("☀️ Dashboard de Análisis Solar")
+    # Logo ZTE en sidebar
+    st.sidebar.markdown(
+        """
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/2/23/ZTE_logo.svg" width="150" alt="ZTE Logo">
+        </div>
+        """, unsafe_allow_html=True
+    )
+    
+    # Selector de idioma
+    render_language_selector()
+    st.sidebar.markdown("---")
+    
+    st.title(f"☀️ {t('app_title')}")
     st.markdown("---")
     
-    st.sidebar.header("Menú Principal")
-    opcion = st.sidebar.selectbox("Selecciona una vista", ["Resumen", "Proyectos Drive", "Exportación"])
+    st.sidebar.header(t("menu_title"))
     
-    if opcion == "Resumen":
-        st.header("Resumen del Sistema")
+    # Opciones traducidas
+    opt_summary = t("view_summary")
+    opt_drive = t("view_drive")
+    opt_export = t("view_export")
+    
+    opcion = st.sidebar.selectbox(t("select_view"), [opt_summary, opt_drive, opt_export])
+    
+    if opcion == opt_summary:
+        st.header(t("summary_header"))
         
         if 'project_data' not in st.session_state or not st.session_state['project_data']:
-            st.info("No hay datos cargados. Por favor, ve a la pestaña 'Proyectos Drive' y carga un proyecto.")
+            st.info(t("no_data_info"))
         else:
             proyecto_actual = st.session_state.get('current_project_name', 'Desconocido')
-            st.subheader(f"📊 Proyecto: {proyecto_actual}")
+            st.subheader(f"📊 {t('project_label')}: {proyecto_actual}")
             
             dataframes = st.session_state['project_data']
             
-            # Pestañas internas para diferentes vistas
-            tab1, tab2, tab3 = st.tabs(["Generación Solar", "Baterías", "Métricas Globales"])
+            tab1, tab2, tab3 = st.tabs([t("tab_generation"), t("tab_battery"), t("tab_global")])
             
             with tab1:
-                st.markdown("### Generación de Energía")
+                st.markdown(f"### {t('gen_header')}")
                 if 'solar_work_rec' in dataframes:
                     df_solar_clean = clean_solar_work_rec(dataframes['solar_work_rec'])
                     df_daily = get_daily_generation(df_solar_clean)
@@ -51,114 +109,105 @@ def main():
                         fig_gen = plot_daily_generation(df_daily)
                         st.plotly_chart(fig_gen, use_container_width=True)
                         
-                        # KPIs de generación
                         total_gen = df_daily['total_generation_kwh'].sum()
                         avg_gen = df_daily['total_generation_kwh'].mean()
                         
                         col1, col2 = st.columns(2)
-                        col1.metric("Generación Total (kWh)", f"{total_gen:,.2f}")
-                        col2.metric("Promedio Diario (kWh/día)", f"{avg_gen:,.2f}")
+                        col1.metric(t("total_gen_metric"), f"{total_gen:,.2f}")
+                        col2.metric(t("avg_gen_metric"), f"{avg_gen:,.2f}")
                     else:
-                        st.warning("No se pudo procesar la generación diaria.")
+                        st.warning(t("no_daily_gen_warning"))
                 else:
-                    st.warning("El archivo solar_work_rec.csv no se encuentra en este proyecto.")
+                    st.warning(t("missing_solar_csv"))
                     
             with tab2:
-                st.markdown("### Estado del Banco de Baterías")
+                st.markdown(f"### {t('battery_header')}")
                 if 'history_data' in dataframes:
-                    with st.spinner("Procesando histórico de baterías..."):
+                    with st.spinner(t("processing_battery")):
                         historicos = clean_history_data(dataframes['history_data'])
                         
                         if 'battery_soc' in historicos and not historicos['battery_soc'].empty:
                             fig_soc = plot_battery_soc(historicos['battery_soc'])
                             st.plotly_chart(fig_soc, use_container_width=True)
                         else:
-                            st.info("No se encontraron datos de SOC de baterías en el histórico.")
+                            st.info(t("no_soc_data"))
                 else:
-                    st.warning("El archivo history_data.csv no se encuentra en este proyecto.")
+                    st.warning(t("missing_history_csv"))
                     
             with tab3:
-                st.markdown("### Métricas Globales del Proyecto")
-                # Se puede expandir con información de batt_chg_rec o alarmas
-                st.info("Próximamente: Análisis de retornos de inversión y eventos del sistema.")
+                st.markdown(f"### {t('global_metrics_header')}")
+                st.info(t("coming_soon"))
         
-    elif opcion == "Proyectos Drive":
-        st.header("Gestor de Proyectos (Google Drive)")
+    elif opcion == opt_drive:
+        st.header(t("drive_header"))
         
         try:
             service = get_drive_service()
-            st.success("✅ Conectado a Google Drive correctamente.")
+            st.success(f"✅ {t('drive_connected')}")
             
-            # Listar proyectos
-            with st.spinner("Buscando proyectos en la carpeta 'Paneles Solares'..."):
+            with st.spinner(t("search_projects_spinner")):
                 proyectos = list_projects(service)
                 
             if not proyectos:
-                st.warning("No se encontraron carpetas de proyectos en 'Paneles Solares'.")
+                st.warning(t("no_projects_found"))
             else:
-                # Diccionario para mapear nombre a ID
                 proyectos_dict = {p['name']: p['id'] for p in proyectos}
-                proyecto_seleccionado = st.selectbox("Selecciona un proyecto para cargar:", list(proyectos_dict.keys()))
+                proyecto_seleccionado = st.selectbox(t("select_project_load"), list(proyectos_dict.keys()))
                 
-                if st.button("Descargar y Procesar Datos", type="primary"):
-                    with st.spinner(f"Descargando datos del proyecto {proyecto_seleccionado} a la memoria RAM..."):
+                if st.button(t("btn_download_process"), type="primary"):
+                    with st.spinner(t("downloading_spinner", project=proyecto_seleccionado)):
                         project_id = proyectos_dict[proyecto_seleccionado]
                         dataframes = download_project_data(service, project_id)
                         
-                        # Guardar los datos en el session state para usarlos en la vista de "Resumen"
                         st.session_state['current_project_name'] = proyecto_seleccionado
                         st.session_state['current_project_id'] = project_id
                         st.session_state['project_data'] = dataframes
                         
-                        st.success(f"¡Datos cargados exitosamente! Se encontraron {len(dataframes)} archivos CSV relevantes.")
+                        st.success(t("data_loaded_success", count=len(dataframes)))
                         st.balloons()
                         
-                        # Mostrar una vista previa rápida
                         for nombre, df in dataframes.items():
-                            with st.expander(f"Vista previa: {nombre}.csv ({len(df)} filas)"):
+                            with st.expander(t("preview_expander", name=nombre, rows=len(df))):
                                 st.dataframe(df.head())
                                 
         except FileNotFoundError as e:
-            st.error(f"Error de credenciales: {e}")
+            st.error(f"Error: {e}")
         except Exception as e:
-            st.error(f"Error al conectar o descargar de Drive: {str(e)}")
+            st.error(f"Error: {str(e)}")
         
-    elif opcion == "Exportación":
-        st.header("Generación de Reportes")
+    elif opcion == opt_export:
+        st.header(t("export_header"))
         
         if 'project_data' not in st.session_state or not st.session_state['project_data']:
-            st.warning("No hay datos para exportar. Por favor, carga un proyecto en la pestaña 'Proyectos Drive'.")
+            st.warning(t("no_export_data"))
         else:
             proyecto_actual = st.session_state.get('current_project_name')
             project_id = st.session_state.get('current_project_id')
             user_obj = st.session_state.get('user')
             user_email = user_obj.email if user_obj else 'desconocido@app.com'
             
-            st.write(f"Proyecto listo para exportar: **{proyecto_actual}**")
+            st.write(f"{t('project_ready_export')} **{proyecto_actual}**")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("📊 Exportar Datos (Excel)")
-                st.write("Genera un Excel multi-hoja con los datos procesados y lo sube a Drive.")
-                if st.button("Generar y Subir Excel"):
-                    with st.spinner("Generando Excel y subiendo a Drive..."):
+                st.subheader(f"📊 {t('export_excel_subheader')}")
+                st.write(t("export_excel_desc"))
+                if st.button(t("btn_generate_excel"), type="primary"):
+                    with st.spinner(t("excel_spinner")):
                         try:
-                            # 1. Generar temporal
                             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
                                 excel_path = tmp.name
                             
                             generate_excel(st.session_state['project_data'], excel_path)
                             
-                            # 2. Subir a Drive
                             service = get_drive_service()
                             file_name = f"{proyecto_actual}_DatosProcesados.xlsx"
                             upload_file_to_drive(service, excel_path, project_id, file_name)
                             
-                            # 3. Log en Supabase
                             log_export_operation(user_email, proyecto_actual, "Excel")
                             
-                            st.success(f"✅ Excel subido a la carpeta del proyecto en Drive.")
+                            st.success(f"✅ {t('excel_success')}")
                         except Exception as e:
                             st.error(f"Error: {e}")
                         finally:
@@ -166,12 +215,11 @@ def main():
                                 os.remove(excel_path)
                                 
             with col2:
-                st.subheader("📑 Exportar Presentación (PPTX)")
-                st.write("Genera una presentación con la plantilla corporativa y gráficas insertadas.")
-                if st.button("Generar y Subir PPTX"):
-                    with st.spinner("Generando presentación y subiendo a Drive..."):
+                st.subheader(f"📑 {t('export_pptx_subheader')}")
+                st.write(t("export_pptx_desc"))
+                if st.button(t("btn_generate_pptx"), type="primary"):
+                    with st.spinner(t("pptx_spinner")):
                         try:
-                            # 1. Preparar datos y gráficas (re-calculamos rápido para el PPTX)
                             dataframes = st.session_state['project_data']
                             figures = {}
                             data_summary = {}
@@ -189,22 +237,19 @@ def main():
                                 if 'battery_soc' in historicos and not historicos['battery_soc'].empty:
                                     figures['Estado de Baterías'] = plot_battery_soc(historicos['battery_soc'])
                                     
-                            # 2. Generar PPTX temporal
                             template_path = os.path.join('templates', 'plantilla_reporte.pptx')
                             with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
                                 pptx_path = tmp.name
                                 
                             generate_pptx(template_path, pptx_path, proyecto_actual, figures, data_summary)
                             
-                            # 3. Subir a Drive
                             service = get_drive_service()
                             file_name = f"{proyecto_actual}_ReporteEjecutivo.pptx"
                             upload_file_to_drive(service, pptx_path, project_id, file_name)
                             
-                            # 4. Log en Supabase
                             log_export_operation(user_email, proyecto_actual, "PPTX")
                             
-                            st.success(f"✅ Presentación subida a la carpeta del proyecto en Drive.")
+                            st.success(f"✅ {t('pptx_success')}")
                         except Exception as e:
                             st.error(f"Error: {e}")
                         finally:
