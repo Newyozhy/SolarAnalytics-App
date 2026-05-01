@@ -30,10 +30,17 @@ def _read_headers() -> dict:
 def _write_headers() -> dict:
     """
     Headers con service_role key — para escrituras (bypasea RLS).
-    Si no hay service_role, cae de vuelta al anon key (puede fallar con 401
-    si la política RLS lo requiere).
+    Lee la key en cada llamada para reflejar cambios en .env sin reiniciar.
     """
-    key = settings.SUPABASE_SERVICE_KEY or settings.SUPABASE_KEY
+    # Prioridad: settings (cargado al inicio) > os.environ (runtime)
+    import os
+    key = (
+        settings.SUPABASE_SERVICE_KEY
+        or os.environ.get("SUPABASE_SERVICE_KEY", "")
+        or settings.SUPABASE_KEY
+    )
+    if not key:
+        logger.error("SUPABASE_SERVICE_KEY no configurado — el UPSERT fallará con 401")
     return {
         "apikey": key,
         "Authorization": f"Bearer {key}",

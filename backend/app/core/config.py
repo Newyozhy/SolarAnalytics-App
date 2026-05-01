@@ -5,6 +5,14 @@ from pathlib import Path
 # Resolve .env regardless of which directory uvicorn is launched from
 _ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
+# Force-load .env into os.environ BEFORE pydantic_settings reads it.
+# This ensures keys added after the initial server start are always picked up.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=_ENV_FILE, override=True)
+except ImportError:
+    pass  # python-dotenv not installed; pydantic_settings will handle it
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Solar Analytics API"
     API_V1_STR: str = "/api/v1"
