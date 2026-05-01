@@ -49,15 +49,28 @@ def find_folder_id(service, folder_name, parent_id=None):
         return None
     return items[0]['id']
 
+def get_folder_metadata(service, folder_id):
+    """Obtiene el id y nombre de una carpeta específica."""
+    try:
+        return service.files().get(fileId=folder_id, fields="id, name").execute()
+    except Exception as e:
+        return None
+
+def list_subfolders(service, folder_id):
+    """Lista todas las subcarpetas dentro de una carpeta padre (folder_id)."""
+    query = f"mimeType='application/vnd.google-apps.folder' and '{folder_id}' in parents and trashed=false"
+    results = service.files().list(q=query, fields="nextPageToken, files(id, name)").execute()
+    
+    # Ordenar alfabéticamente
+    files = results.get('files', [])
+    return sorted(files, key=lambda x: x['name'])
+
 def list_projects(service, root_folder_name="Paneles Solares"):
-    """Lista todas las subcarpetas (proyectos) dentro de la carpeta principal."""
+    """Lista subcarpetas desde el root (Legacy, se mantiene por si acaso)"""
     root_id = find_folder_id(service, root_folder_name)
     if not root_id:
         raise ValueError(f"No se encontró la carpeta raíz '{root_folder_name}' compartida con la cuenta de servicio.")
-        
-    query = f"mimeType='application/vnd.google-apps.folder' and '{root_id}' in parents and trashed=false"
-    results = service.files().list(q=query, fields="nextPageToken, files(id, name)").execute()
-    return results.get('files', [])
+    return list_subfolders(service, root_id)
 
 def get_csv_files_in_project(service, project_folder_id):
     """Busca los CSVs relevantes en la carpeta del proyecto (incluso si están en una subcarpeta de Reporte_Paneles)."""

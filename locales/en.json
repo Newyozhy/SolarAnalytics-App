@@ -51,5 +51,15 @@
   "pptx_spinner": "Generating presentation and uploading to Drive...",
   "pptx_success": "Presentation successfully uploaded to the project folder in Drive.",
   "lang_selector": "🌐 Language",
-  "theme_selector": "🌗 Theme"
+  "theme_selector": "🌗 Theme",
+  "drive_path_label": "Current Path:",
+  "btn_up_level": "⬅️ Go Up",
+  "exploring_folder": "Exploring {folder}...",
+  "folders_found": "Folders found:",
+  "btn_open_folder": "📂 Open this Folder",
+  "btn_process_project": "🚀 Process as Project",
+  "empty_folder": "This folder is empty or has no subfolders.",
+  "btn_process_this_folder": "🚀 Process this folder as Project",
+  "search_root": "Searching for root folder...",
+  "root_not_found": "Root folder not found."
 }

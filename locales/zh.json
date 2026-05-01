@@ -51,5 +51,15 @@
   "pptx_spinner": "正在生成演示文稿并上传到 Drive...",
   "pptx_success": "演示文稿已成功上传到 Drive 中的项目文件夹。",
   "lang_selector": "🌐 语言 / Language",
-  "theme_selector": "🌗 主题 / Theme"
+  "theme_selector": "🌗 主题 / Theme",
+  "drive_path_label": "当前路径:",
+  "btn_up_level": "⬅️ 上一级",
+  "exploring_folder": "正在探索 {folder}...",
+  "folders_found": "找到的文件夹:",
+  "btn_open_folder": "📂 打开此文件夹",
+  "btn_process_project": "🚀 作为项目处理",
+  "empty_folder": "此文件夹为空或没有子文件夹。",
+  "btn_process_this_folder": "🚀 将此文件夹作为项目处理",
+  "search_root": "正在搜索根文件夹...",
+  "root_not_found": "未找到根文件夹。"
 }

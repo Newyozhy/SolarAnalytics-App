@@ -147,30 +147,71 @@ def main():
             service = get_drive_service()
             st.success(f"✅ {t('drive_connected')}")
             
-            with st.spinner(t("search_projects_spinner")):
-                proyectos = list_projects(service)
+            # Inicializar la ruta de navegación si no existe
+            from src.drive_api import find_folder_id, list_subfolders
+            
+            if 'drive_path' not in st.session_state:
+                with st.spinner(t("search_root")):
+                    root_id = find_folder_id(service, "Paneles Solares")
+                    if root_id:
+                        st.session_state.drive_path = [{'id': root_id, 'name': 'Paneles Solares'}]
+                    else:
+                        st.warning(t("root_not_found"))
+            
+            if 'drive_path' in st.session_state and st.session_state.drive_path:
+                current_folder = st.session_state.drive_path[-1]
                 
-            if not proyectos:
-                st.warning(t("no_projects_found"))
-            else:
-                proyectos_dict = {p['name']: p['id'] for p in proyectos}
-                proyecto_seleccionado = st.selectbox(t("select_project_load"), list(proyectos_dict.keys()))
+                # Renderizar Breadcrumbs
+                breadcrumbs = " > ".join([f"`{f['name']}`" for f in st.session_state.drive_path])
+                st.markdown(f"**{t('drive_path_label')}** {breadcrumbs}")
                 
-                if st.button(t("btn_download_process"), type="primary"):
-                    with st.spinner(t("downloading_spinner", project=proyecto_seleccionado)):
-                        project_id = proyectos_dict[proyecto_seleccionado]
-                        dataframes = download_project_data(service, project_id)
-                        
-                        st.session_state['current_project_name'] = proyecto_seleccionado
-                        st.session_state['current_project_id'] = project_id
-                        st.session_state['project_data'] = dataframes
-                        
-                        st.success(t("data_loaded_success", count=len(dataframes)))
-                        st.balloons()
-                        
-                        for nombre, df in dataframes.items():
-                            with st.expander(t("preview_expander", name=nombre, rows=len(df))):
-                                st.dataframe(df.head())
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if len(st.session_state.drive_path) > 1:
+                        if st.button(t("btn_up_level")):
+                            st.session_state.drive_path.pop()
+                            st.rerun()
+                
+                with st.spinner(t("exploring_folder", folder=current_folder['name'])):
+                    subcarpetas = list_subfolders(service, current_folder['id'])
+                
+                if subcarpetas:
+                    opciones_carpeta = {p['name']: p['id'] for p in subcarpetas}
+                    carpeta_seleccionada = st.selectbox(t("folders_found"), list(opciones_carpeta.keys()))
+                    carpeta_id = opciones_carpeta[carpeta_seleccionada]
+                    
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button(t("btn_open_folder"), use_container_width=True):
+                            st.session_state.drive_path.append({'id': carpeta_id, 'name': carpeta_seleccionada})
+                            st.rerun()
+                    with c2:
+                        if st.button(t("btn_process_project"), type="primary", use_container_width=True):
+                            with st.spinner(t("downloading_spinner", project=carpeta_seleccionada)):
+                                dataframes = download_project_data(service, carpeta_id)
+                                st.session_state['current_project_name'] = carpeta_seleccionada
+                                st.session_state['current_project_id'] = carpeta_id
+                                st.session_state['project_data'] = dataframes
+                                st.success(t("data_loaded_success", count=len(dataframes)))
+                                st.balloons()
+                                
+                                for nombre, df in dataframes.items():
+                                    with st.expander(t("preview_expander", name=nombre, rows=len(df))):
+                                        st.dataframe(df.head())
+                else:
+                    st.info(t("empty_folder"))
+                    if st.button(t("btn_process_this_folder"), type="primary"):
+                        with st.spinner(t("downloading_spinner", project=current_folder['name'])):
+                            dataframes = download_project_data(service, current_folder['id'])
+                            st.session_state['current_project_name'] = current_folder['name']
+                            st.session_state['current_project_id'] = current_folder['id']
+                            st.session_state['project_data'] = dataframes
+                            st.success(t("data_loaded_success", count=len(dataframes)))
+                            st.balloons()
+                            
+                            for nombre, df in dataframes.items():
+                                    with st.expander(t("preview_expander", name=nombre, rows=len(df))):
+                                        st.dataframe(df.head())
                                 
         except FileNotFoundError as e:
             st.error(f"Error: {e}")

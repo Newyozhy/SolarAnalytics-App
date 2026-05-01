@@ -51,5 +51,15 @@
   "pptx_spinner": "Generando presentación y subiendo a Drive...",
   "pptx_success": "Presentación subida a la carpeta del proyecto en Drive.",
   "lang_selector": "🌐 Idioma / Language",
-  "theme_selector": "🌗 Tema / Theme"
+  "theme_selector": "🌗 Tema / Theme",
+  "drive_path_label": "Ruta Actual:",
+  "btn_up_level": "⬅️ Subir Nivel",
+  "exploring_folder": "Explorando {folder}...",
+  "folders_found": "Carpetas encontradas:",
+  "btn_open_folder": "📂 Abrir esta Carpeta",
+  "btn_process_project": "🚀 Procesar como Proyecto",
+  "empty_folder": "Esta carpeta está vacía o no tiene subcarpetas.",
+  "btn_process_this_folder": "🚀 Procesar esta carpeta como Proyecto",
+  "search_root": "Buscando carpeta raíz...",
+  "root_not_found": "No se encontró la carpeta raíz."
 }
