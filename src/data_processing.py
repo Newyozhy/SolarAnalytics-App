@@ -96,7 +96,7 @@ def clean_history_data(df):
             df_soc = df[soc_mask][['save_time', 'device_name', 'signal_name', 'value']].copy()
             # Agrupar por hora para reducir puntos en la gráfica si es muy grande
             df_soc.set_index('save_time', inplace=True)
-            df_soc_hourly = df_soc.groupby(['device_name', pd.Grouper(freq='H')])['value'].mean().reset_index()
+            df_soc_hourly = df_soc.groupby(['device_name', pd.Grouper(freq='h')])['value'].mean().reset_index()
             result['battery_soc'] = df_soc_hourly
             
         # Potencia de carga
@@ -105,7 +105,7 @@ def clean_history_data(df):
             df_load = df[load_mask][['save_time', 'value']].copy()
             df_load.set_index('save_time', inplace=True)
             # Resample a diario para sumar
-            df_load_daily = df_load.resample('D')['value'].max().diff().reset_index() # max() de la acumulada
+            df_load_daily = df_load.resample('d')['value'].max().diff().reset_index() # max() de la acumulada
             df_load_daily.columns = ['date', 'daily_consumption_kwh']
             df_load_daily['daily_consumption_kwh'] = df_load_daily['daily_consumption_kwh'].apply(lambda x: max(0, x))
             result['daily_load'] = df_load_daily
