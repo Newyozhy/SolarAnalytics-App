@@ -1,41 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import {
-  Loader2, FileDown, X, Zap, Battery, TrendingUp, Clock,
-  CheckCircle2, AlertCircle, History
-} from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { FolderTree } from '@/components/explorer/FolderTree';
 import { FolderContent } from '@/components/explorer/FolderContent';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ResultsDashboard } from '@/components/dashboard/ResultsDashboard';
 import { projectsApi } from '@/api/projects';
 import type { Folder } from '@/api/projects';
 import { useProjectCache } from '@/hooks/useProjectCache';
-import Plot from 'react-plotly.js';
 import { cn } from '@/lib/utils';
 
 interface BreadcrumbItem { id: string; name: string; }
 
-// KPI summary card
-function KpiCard({ icon: Icon, label, value, color }: { icon: any, label: string, value: string, color: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
-    >
-      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: `${color}18` }}>
-        <Icon className="w-5 h-5" style={{ color }} />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-lg font-display font-semibold text-foreground">{value}</p>
-      </div>
-    </motion.div>
-  );
-}
 
 // Processing status step
 const processingSteps = [
@@ -211,105 +190,11 @@ export function ProjectsPage() {
         {/* RIGHT — Content panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {showResults && jobResult ? (
-            /* ═══ RESULTS DASHBOARD ═══ */
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex-1 overflow-auto p-6 space-y-6"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <h1 className="font-display text-2xl font-bold text-foreground">
-                      {jobResult.project_name}
-                    </h1>
-                    {fromCache && (
-                      <span className="flex items-center gap-1 text-[11px] font-medium text-[#00A86B] bg-[#00A86B]/10 border border-[#00A86B]/25 rounded-full px-2.5 py-0.5">
-                        <History className="w-3 h-3" />
-                        Desde caché
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Reporte de análisis solar</p>
-                </div>
-                <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { setShowResults(false); setJobResult(null); setFromCache(false); }}>
-                  <X className="w-4 h-4" /> Cerrar
-                </Button>
-              </div>
-
-              {/* KPI Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <KpiCard icon={Zap} label="Generación Total" value="– kWh" color="#008ED3" />
-                <KpiCard icon={TrendingUp} label="Promedio Diario" value="– kWh" color="#00A86B" />
-                <KpiCard icon={Battery} label="Batería máx SOC" value="–%" color="#F59E0B" />
-                <KpiCard icon={Clock} label="Período analizado" value="–d" color="#8B5CF6" />
-              </div>
-
-              {/* Charts */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                {jobResult.daily_generation?.length > 0 && (
-                  <div className="rounded-xl border border-border bg-card p-4">
-                    <h3 className="text-sm font-semibold mb-4 text-foreground">Generación Diaria (kWh)</h3>
-                    <div className="h-[260px]">
-                      <Plot
-                        data={[{
-                          x: jobResult.daily_generation.map((d: any) => d.Date || d.time),
-                          y: jobResult.daily_generation.map((d: any) => d.Daily_Generation || d.value),
-                          type: 'bar',
-                          marker: { color: '#008ED3', opacity: 0.9 }
-                        }]}
-                        layout={{
-                          autosize: true, margin: { t: 8, r: 8, l: 40, b: 40 },
-                          paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                          font: { color: '#9ca3af', size: 11 },
-                          xaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'transparent' },
-                          yaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'transparent' }
-                        }}
-                        useResizeHandler style={{ width: '100%', height: '100%' }}
-                        config={{ responsive: true, displayModeBar: false }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {jobResult.battery_soc?.length > 0 && (
-                  <div className="rounded-xl border border-border bg-card p-4">
-                    <h3 className="text-sm font-semibold mb-4 text-foreground">Estado de Batería (SOC %)</h3>
-                    <div className="h-[260px]">
-                      <Plot
-                        data={[{
-                          x: jobResult.battery_soc.map((d: any) => d.Time || d.time),
-                          y: jobResult.battery_soc.map((d: any) => d.Battery_SOC || d.value),
-                          type: 'scatter', mode: 'lines',
-                          line: { color: '#00A86B', width: 2 },
-                          fill: 'tozeroy', fillcolor: 'rgba(0,168,107,0.12)'
-                        }]}
-                        layout={{
-                          autosize: true, margin: { t: 8, r: 8, l: 40, b: 40 },
-                          paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
-                          font: { color: '#9ca3af', size: 11 },
-                          xaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'transparent' },
-                          yaxis: { gridcolor: 'rgba(255,255,255,0.05)', linecolor: 'transparent', range: [0, 105] }
-                        }}
-                        useResizeHandler style={{ width: '100%', height: '100%' }}
-                        config={{ responsive: true, displayModeBar: false }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Downloads */}
-              <div className="flex gap-3">
-                <Button className="gap-2 h-9" style={{ background: 'var(--zte-blue)', color: 'white' }}>
-                  <FileDown className="w-4 h-4" /> Descargar Excel
-                </Button>
-                <Button variant="outline" className="gap-2 h-9">
-                  <FileDown className="w-4 h-4" /> Descargar PPTX
-                </Button>
-              </div>
-            </motion.div>
+            <ResultsDashboard
+              result={jobResult}
+              fromCache={fromCache}
+              onClose={() => { setShowResults(false); setJobResult(null); setFromCache(false); }}
+            />
           ) : (
             <FolderContent
               folders={filteredFolders}
