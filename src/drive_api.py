@@ -13,9 +13,23 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def get_drive_service():
     """Autentica y retorna el servicio de Google Drive."""
+    import streamlit as st
+    
+    # 1. Intentar usar Streamlit Secrets (Entorno Nube)
+    try:
+        if "gcp_service_account" in st.secrets:
+            # Extraer el diccionario de secretos y forzar conversión a dict
+            creds_info = dict(st.secrets["gcp_service_account"])
+            creds = service_account.Credentials.from_service_account_info(
+                creds_info, scopes=SCOPES)
+            return build('drive', 'v3', credentials=creds)
+    except Exception as e:
+        pass # Si falla o no estamos en Streamlit, pasa al archivo local
+        
+    # 2. Fallback: usar archivo credentials.json (Entorno Local)
     creds_path = os.environ.get('GOOGLE_CREDENTIALS_JSON_PATH', 'credentials.json')
     if not os.path.exists(creds_path):
-        raise FileNotFoundError(f"No se encontró el archivo de credenciales en la ruta: {creds_path}")
+        raise FileNotFoundError(f"No se encontró el archivo de credenciales. Asegúrate de configurar st.secrets en Streamlit Cloud o proveer {creds_path} localmente.")
         
     creds = service_account.Credentials.from_service_account_file(
         creds_path, scopes=SCOPES)
