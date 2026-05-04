@@ -8,6 +8,7 @@ import { FolderContent } from '@/components/explorer/FolderContent';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ResultsDashboard } from '@/components/dashboard/ResultsDashboard';
+import { AnalysisDashboard } from '@/components/analysis/AnalysisDashboard';
 import { projectsApi } from '@/api/projects';
 import type { Folder } from '@/api/projects';
 import { useProjectCache } from '@/hooks/useProjectCache';
@@ -49,6 +50,9 @@ export function ProjectsPage() {
   const [jobError, setJobError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [fromCache, setFromCache] = useState(false);
+
+  // Analysis dashboard state
+  const [analysisTarget, setAnalysisTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Load folders at current breadcrumb level
   const loadFolders = useCallback(async (parentId: string) => {
@@ -189,11 +193,21 @@ export function ProjectsPage() {
 
         {/* RIGHT — Content panel */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {showResults && jobResult ? (
+          {analysisTarget ? (
+            <AnalysisDashboard
+              projectId={analysisTarget.id}
+              projectName={analysisTarget.name}
+              onBack={() => setAnalysisTarget(null)}
+            />
+          ) : showResults && jobResult ? (
             <ResultsDashboard
               result={jobResult}
               fromCache={fromCache}
               onClose={() => { setShowResults(false); setJobResult(null); setFromCache(false); }}
+              onOpenAnalysis={(id, name) => {
+                setShowResults(false);
+                setAnalysisTarget({ id, name });
+              }}
             />
           ) : (
             <FolderContent
@@ -206,6 +220,7 @@ export function ProjectsPage() {
               onNavigate={handleNavigate}
               onProcess={handleProcess}
               onViewCached={handleViewCached}
+              onOpenAnalysis={(folder) => setAnalysisTarget({ id: folder.id, name: folder.name })}
               processedMap={Object.fromEntries(
                 Object.entries(cacheMap).map(([id, v]) => [
                   id,

@@ -4,7 +4,7 @@ import type { Variants } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import {
   Folder, FolderOpen, LayoutGrid, List as ListIcon,
-  Play, CheckCircle2, Clock
+  Play, CheckCircle2, Clock, BarChart2
 } from 'lucide-react';
 import type { Folder as FolderType } from '@/api/projects';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ interface FolderContentProps {
   onNavigate: (folder: FolderType) => void;
   onProcess: (folder: FolderType) => void;
   onViewCached?: (folder: FolderType) => void;
+  onOpenAnalysis?: (folder: FolderType) => void;
   processedMap?: Record<string, ProcessedStatus>;
 }
 
@@ -38,7 +39,7 @@ const cardVariants: Variants = {
 
 function FolderCard({
   folder, index, isSelected, isProcessed, processedAt,
-  onSelect, onNavigate, onProcess, onViewCached,
+  onSelect, onNavigate, onProcess, onViewCached, onOpenAnalysis,
 }: {
   folder: FolderType;
   index: number;
@@ -49,6 +50,7 @@ function FolderCard({
   onNavigate: (f: FolderType) => void;
   onProcess: (f: FolderType) => void;
   onViewCached?: (f: FolderType) => void;
+  onOpenAnalysis?: (f: FolderType) => void;
 }) {
   const { t } = useTranslation();
 
@@ -117,7 +119,16 @@ function FolderCard({
               onClick={e => { e.stopPropagation(); onViewCached?.(folder); }}
             >
               <CheckCircle2 className="w-3 h-3" />
-              Ver Resultados
+              Ver
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs gap-1 px-2"
+              style={{ background: 'rgba(0,142,211,0.15)', color: '#008ED3', border: '1px solid rgba(0,142,211,0.3)' }}
+              title="Abrir análisis avanzado"
+              onClick={e => { e.stopPropagation(); onOpenAnalysis?.(folder); }}
+            >
+              <BarChart2 className="w-3 h-3" />
             </Button>
             <Button
               variant="ghost"
@@ -158,7 +169,7 @@ function FolderCard({
 
 export function FolderContent({
   folders, loading, viewMode, onViewModeChange,
-  selectedId, onSelect, onNavigate, onProcess, onViewCached, processedMap = {}
+  selectedId, onSelect, onNavigate, onProcess, onViewCached, onOpenAnalysis, processedMap = {}
 }: FolderContentProps) {
   const { t } = useTranslation();
 
@@ -219,6 +230,7 @@ export function FolderContent({
                   onNavigate={onNavigate}
                   onProcess={onProcess}
                   onViewCached={onViewCached}
+                  onOpenAnalysis={onOpenAnalysis}
                 />
               ))}
             </AnimatePresence>
@@ -266,6 +278,15 @@ export function FolderContent({
                             onClick={e => { e.stopPropagation(); onViewCached?.(folder); }}
                           >
                             <CheckCircle2 className="w-3 h-3" /> Ver
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1 px-2"
+                            style={{ background: 'rgba(0,142,211,0.15)', color: '#008ED3', border: '1px solid rgba(0,142,211,0.3)' }}
+                            title="Análisis avanzado"
+                            onClick={e => { e.stopPropagation(); onOpenAnalysis?.(folder); }}
+                          >
+                            <BarChart2 className="w-3 h-3" />
                           </Button>
                           <Button
                             variant="ghost" size="sm"

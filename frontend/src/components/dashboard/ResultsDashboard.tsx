@@ -4,7 +4,7 @@ import type { Variants } from 'motion/react';
 import {
   Zap, TrendingUp, Battery, Calendar,
   Clock, Sun, BarChart3, Activity, X, History, FileDown,
-  ArrowUp, ArrowDown, Minus
+  ArrowUp, ArrowDown, Minus, BarChart2
 } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,7 @@ interface ResultsDashboardProps {
   result: ProjectResult;
   fromCache: boolean;
   onClose: () => void;
+  onOpenAnalysis?: (projectId: string, projectName: string) => void;
 }
 
 // ─── Shared Plotly layout base ────────────────────────────────────────────
@@ -180,7 +181,7 @@ function ChartCard({ title, subtitle, children, index, fullWidth }: ChartCardPro
 
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 
-export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboardProps) {
+export function ResultsDashboard({ result, fromCache, onClose, onOpenAnalysis }: ResultsDashboardProps) {
 
   // ── KPI computations ──
   const kpis = useMemo(() => {
@@ -313,6 +314,16 @@ export function ResultsDashboard({ result, fromCache, onClose }: ResultsDashboar
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {onOpenAnalysis && (
+            <Button
+              size="sm"
+              className="gap-1.5 h-8 text-xs font-semibold"
+              style={{ background: 'rgba(0,142,211,0.15)', color: '#008ED3', border: '1px solid rgba(0,142,211,0.3)' }}
+              onClick={() => onOpenAnalysis(result.project_id, result.project_name)}
+            >
+              <BarChart2 className="w-3.5 h-3.5" /> Analizar
+            </Button>
+          )}
           <Button size="sm" className="gap-1.5 h-8 text-xs" style={{ background: '#008ED3', color: 'white' }}>
             <FileDown className="w-3.5 h-3.5" /> Excel
           </Button>

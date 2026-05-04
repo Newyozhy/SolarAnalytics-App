@@ -24,8 +24,10 @@ def health_check():
 
 # TODO: Include routers here
 from app.api.v1.endpoints import projects
+from app.api.v1.endpoints import analysis
 
 app.include_router(projects.router, prefix=f"{settings.API_V1_STR}/projects", tags=["projects"])
+app.include_router(analysis.router, prefix=f"{settings.API_V1_STR}/analysis", tags=["analysis"])
 
 if __name__ == "__main__":
     import uvicorn
