@@ -9,4 +9,4 @@
   status = 200
 
 [build.environment]
-  VITE_API_URL = "https://solaranalytics-app.onrender.com/api/v1"
+  VITE_API_URL = "https://solaranalytics-app.onrender.com/api"
