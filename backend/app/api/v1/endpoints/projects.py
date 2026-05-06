@@ -3,6 +3,7 @@ from typing import List, Dict
 import uuid
 import asyncio
 import gc
+import json
 import numpy as np
 from datetime import datetime, timezone
 
@@ -147,10 +148,10 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 df_clean = clean_solar_work_rec(df)
                 
                 df_daily = get_daily_generation(df_clean)
-                daily_gen = df_daily.replace({np.nan: None}).to_dict(orient="records")
+                daily_gen = json.loads(df_daily.to_json(orient="records", date_format="iso"))
                 
                 # Para el cache de análisis
-                raw_data_cache["solar"] = df_clean.replace({np.nan: None}).to_dict(orient="records")
+                raw_data_cache["solar"] = json.loads(df_clean.to_json(orient="records", date_format="iso"))
                 
                 del df; del df_clean; del df_daily; gc.collect()
                 
@@ -160,7 +161,7 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 historicos = clean_history_data(df)
                 
                 if "battery_soc" in historicos:
-                    battery_soc = historicos["battery_soc"].replace({np.nan: None}).to_dict(orient="records")
+                    battery_soc = json.loads(historicos["battery_soc"].to_json(orient="records", date_format="iso"))
                 
                 # Filter history_data to keep only essential signals for analysis
                 # to prevent 40MB JSON payloads in Supabase cache
@@ -173,13 +174,13 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 else:
                     df_filtered = df
                 
-                raw_data_cache["history"] = df_filtered.replace({np.nan: None}).to_dict(orient="records")
+                raw_data_cache["history"] = json.loads(df_filtered.to_json(orient="records", date_format="iso"))
                 del df; del df_filtered; del historicos; gc.collect()
                 
             elif name_key == "history_alarm":
                 df = download_csv_to_dataframe(service, file_info['id'])
                 raw_summary[name_key] = len(df)
-                raw_data_cache["alarms"] = df.replace({np.nan: None}).to_dict(orient="records")
+                raw_data_cache["alarms"] = json.loads(df.to_json(orient="records", date_format="iso"))
                 del df; gc.collect()
             else:
                 # Para los demas, omitimos descarga temporalmente para no dar OOM.
