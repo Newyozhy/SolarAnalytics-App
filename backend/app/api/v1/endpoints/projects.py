@@ -172,7 +172,13 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                     )
                     df_filtered = df[mask].copy()
                 else:
-                    df_filtered = df
+                    df_filtered = df.copy()
+                
+                # Downsample to 1 hour to reduce payload from 13MB to 150KB
+                df_filtered['save_time'] = pd.to_datetime(df_filtered['save_time'], errors='coerce')
+                df_filtered['value'] = pd.to_numeric(df_filtered['value'], errors='coerce')
+                df_filtered = df_filtered.dropna(subset=['save_time', 'value'])
+                df_filtered = df_filtered.groupby(['device_name', 'signal_name']).resample('1h', on='save_time')['value'].mean().reset_index()
                 
                 raw_data_cache["history"] = json.loads(df_filtered.to_json(orient="records", date_format="iso"))
                 del df; del df_filtered; del historicos; gc.collect()
