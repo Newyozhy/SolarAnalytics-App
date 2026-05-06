@@ -95,12 +95,14 @@ def save_project_result(
         return False
 
     try:
+        from datetime import datetime, timezone
         url = f"{settings.SUPABASE_URL}/rest/v1/processed_projects"
         payload = {
             "folder_id": folder_id,
             "folder_name": folder_name,
             "result_json": result,
             "metadata": metadata or {},
+            "processed_at": datetime.now(timezone.utc).isoformat(),
         }
         # Upsert con service_role key (bypasea la política RLS de escritura)
         headers = _write_headers()

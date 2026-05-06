@@ -5,6 +5,7 @@ import asyncio
 import gc
 import json
 import numpy as np
+import pandas as pd
 from datetime import datetime, timezone
 
 from app.schemas.projects import FolderResponse, ProcessProjectRequest, JobResponse
