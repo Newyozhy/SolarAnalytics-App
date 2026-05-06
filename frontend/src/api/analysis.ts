@@ -244,7 +244,7 @@ export const analysisApi = {
 
   getCalendarHeatmap: (
     projectId: string,
-    params: { include_outliers?: boolean }
+    params?: { include_outliers?: boolean }
   ): Promise<CalendarHeatmap> =>
     apiClient.get(`/v1/analysis/${projectId}/calendar-heatmap`, { params }).then(r => r.data),
 

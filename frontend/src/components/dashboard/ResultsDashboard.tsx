@@ -92,7 +92,7 @@ const cardVariants: Variants = {
   hidden: { opacity: 0, y: 16, scale: 0.96 },
   visible: (i: number) => ({
     opacity: 1, y: 0, scale: 1,
-    transition: { delay: i * 0.07, duration: 0.35, ease: [0.16, 1, 0.3, 1] }
+    transition: { delay: i * 0.07, duration: 0.35 }
   }),
 };
 
