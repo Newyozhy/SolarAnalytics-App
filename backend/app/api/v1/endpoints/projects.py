@@ -6,7 +6,7 @@ import gc
 from datetime import datetime, timezone
 
 from app.schemas.projects import FolderResponse, ProcessProjectRequest, JobResponse
-from app.services.drive_service import get_drive_service, find_folder_id, list_subfolders, download_project_data
+from app.services.drive_service import get_drive_service, find_folder_id, list_subfolders, download_project_data, get_csv_files_in_project, download_csv_to_dataframe
 from app.services.data_service import clean_solar_work_rec, get_daily_generation, clean_history_data
 from app.services.supabase_service import (
     get_cached_project, save_project_result, list_cached_projects, get_cached_result_json
@@ -114,7 +114,7 @@ def get_cached_result(folder_id: str):
 # ─────────────────────────────────────────────────────────────
 
 def _process_project_task(job_id: str, folder_id: str, folder_name: str):
-    """Tarea pesada que corre en un hilo separado."""
+    """Tarea pesada que corre en un hilo separado con bajo uso de memoria."""
     try:
         # 1. Verificar caché primero (por si ya fue procesado mientras esperaba)
         cached = get_cached_result_json(folder_id)
@@ -124,37 +124,60 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
             JOBS_STORE[job_id]["from_cache"] = True
             return
 
-        # 2. Descargar de Drive
+        # 2. Obtener lista de archivos (sin descargarlos)
         JOBS_STORE[job_id]["status"] = "downloading"
         service = get_drive_service()
-        dataframes = download_project_data(service, folder_id)
-
-        # 3. Procesar datos
+        csv_files = get_csv_files_in_project(service, folder_id)
+        
+        # 3. Procesar datos de manera secuencial (para ahorrar RAM)
         JOBS_STORE[job_id]["status"] = "processing"
         daily_gen = []
         battery_soc = []
+        raw_summary = {}
 
-        if "solar_work_rec" in dataframes:
-            df_solar_clean = clean_solar_work_rec(dataframes["solar_work_rec"])
-            df_daily = get_daily_generation(df_solar_clean)
-            daily_gen = df_daily.to_dict(orient="records")
-
-        if "history_data" in dataframes:
-            historicos = clean_history_data(dataframes["history_data"])
-            if "battery_soc" in historicos:
-                battery_soc = historicos["battery_soc"].to_dict(orient="records")
+        for file_info in csv_files:
+            name_key = file_info['name'].replace('.csv', '')
+            
+            # Solo descargar los que realmente vamos a procesar ahora
+            if name_key == "solar_work_rec":
+                df = download_csv_to_dataframe(service, file_info['id'])
+                raw_summary[name_key] = len(df)
+                df_clean = clean_solar_work_rec(df)
+                del df # Liberar memoria del original
+                gc.collect()
+                df_daily = get_daily_generation(df_clean)
+                del df_clean
+                gc.collect()
+                daily_gen = df_daily.to_dict(orient="records")
+                del df_daily
+                gc.collect()
+                
+            elif name_key == "history_data":
+                df = download_csv_to_dataframe(service, file_info['id'])
+                raw_summary[name_key] = len(df)
+                historicos = clean_history_data(df)
+                del df
+                gc.collect()
+                if "battery_soc" in historicos:
+                    battery_soc = historicos["battery_soc"].to_dict(orient="records")
+                del historicos
+                gc.collect()
+            else:
+                # Para los demas, omitimos descarga temporalmente para no dar OOM.
+                # Si necesitamos summary, lo ponemos en 0 por ahora.
+                raw_summary[name_key] = 0
 
         result = {
             "project_id": folder_id,
             "project_name": folder_name,
             "daily_generation": daily_gen,
             "battery_soc": battery_soc,
-            "raw_data_summary": {k: len(v) for k, v in dataframes.items()},
+            "raw_data_summary": raw_summary,
         }
 
         metadata = {
-            "total_records": sum(len(v) for v in dataframes.values()),
-            "csv_files": list(dataframes.keys()),
+            "total_records": sum(raw_summary.values()),
+            "csv_files": [f['name'] for f in csv_files],
             "processing_date": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -166,12 +189,7 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
         JOBS_STORE[job_id]["result"] = result
         JOBS_STORE[job_id]["status"] = "completed"
         JOBS_STORE[job_id]["from_cache"] = False
-
-        # 6. Liberar RAM agresivamente
-        del dataframes
-        if "df_solar_clean" in locals(): del df_solar_clean
-        if "df_daily" in locals(): del df_daily
-        if "historicos" in locals(): del historicos
+        
         gc.collect()
 
     except Exception as e:

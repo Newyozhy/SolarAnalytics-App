@@ -12,6 +12,17 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 # Ruta absoluta a la raíz del proyecto (SolarApp/)
 _PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[4]
 
+__all__ = [
+    'get_drive_service', 
+    'find_folder_id', 
+    'get_folder_metadata',
+    'list_subfolders', 
+    'get_csv_files_in_project',
+    'download_csv_to_dataframe',
+    'download_project_data',
+    'upload_file_to_drive'
+]
+
 
 def get_drive_service():
     """Autentica y retorna el servicio de Google Drive."""
