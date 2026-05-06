@@ -47,6 +47,7 @@ interface ResultsDashboardProps {
   fromCache: boolean;
   onClose: () => void;
   onOpenAnalysis?: (projectId: string, projectName: string) => void;
+  isEmbedded?: boolean;
 }
 
 // ─── Shared Plotly layout base ────────────────────────────────────────────
@@ -181,7 +182,7 @@ function ChartCard({ title, subtitle, children, index, fullWidth }: ChartCardPro
 
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 
-export function ResultsDashboard({ result, fromCache, onClose, onOpenAnalysis }: ResultsDashboardProps) {
+export function ResultsDashboard({ result, fromCache, onClose, onOpenAnalysis, isEmbedded }: ResultsDashboardProps) {
 
   // ── KPI computations ──
   const kpis = useMemo(() => {
@@ -291,10 +292,11 @@ export function ResultsDashboard({ result, fromCache, onClose, onOpenAnalysis }:
       exit={{ opacity: 0 }}
       className="flex-1 overflow-auto bg-background"
     >
-      {/* ── Sticky top bar ── */}
-      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          {/* Project icon */}
+      {/* ── Sticky top bar (only if not embedded) ── */}
+      {!isEmbedded && (
+        <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Project icon */}
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(0,142,211,0.12)' }}>
             <Sun className="w-5 h-5 text-[#008ED3]" />
@@ -335,9 +337,10 @@ export function ResultsDashboard({ result, fromCache, onClose, onOpenAnalysis }:
           </Button>
         </div>
       </div>
+      )}
 
       {/* ── Content ── */}
-      <div className="p-6 space-y-6">
+      <div className={cn("space-y-6", isEmbedded ? "p-5" : "p-6")}>
 
         {/* KPI Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

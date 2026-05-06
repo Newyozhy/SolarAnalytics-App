@@ -20,10 +20,28 @@ router = APIRouter()
 
 def _load_project_dataframes(project_id: str) -> dict:
     """
-    Carga los DataFrames del proyecto desde Drive.
-    Retorna dict: {csv_name: DataFrame}
+    Carga los DataFrames del proyecto.
+    Primero intenta desde el caché de Supabase (raw_data).
+    Si no existe o falla, descarga de Drive.
     """
     try:
+        # Intento de lectura desde Supabase Caché
+        cached = get_cached_result_json(project_id)
+        if cached and "raw_data" in cached:
+            raw = cached["raw_data"]
+            dataframes = {}
+            if "solar" in raw and raw["solar"]:
+                dataframes["solar_work_rec"] = pd.DataFrame(raw["solar"])
+            if "history" in raw and raw["history"]:
+                dataframes["history_data"] = pd.DataFrame(raw["history"])
+            if "alarms" in raw and raw["alarms"]:
+                dataframes["history_alarm"] = pd.DataFrame(raw["alarms"])
+            
+            # Si se cargó algo útil, retornamos
+            if dataframes:
+                return dataframes
+
+        # Fallback: Drive
         service = get_drive_service()
         dataframes = download_project_data(service, project_id)
         return dataframes

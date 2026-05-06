@@ -3,6 +3,7 @@ from typing import List, Dict
 import uuid
 import asyncio
 import gc
+import numpy as np
 from datetime import datetime, timezone
 
 from app.schemas.projects import FolderResponse, ProcessProjectRequest, JobResponse
@@ -134,6 +135,7 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
         daily_gen = []
         battery_soc = []
         raw_summary = {}
+        raw_data_cache = {}
 
         for file_info in csv_files:
             name_key = file_info['name'].replace('.csv', '')
@@ -143,25 +145,31 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 df = download_csv_to_dataframe(service, file_info['id'])
                 raw_summary[name_key] = len(df)
                 df_clean = clean_solar_work_rec(df)
-                del df # Liberar memoria del original
-                gc.collect()
+                
                 df_daily = get_daily_generation(df_clean)
-                del df_clean
-                gc.collect()
-                daily_gen = df_daily.to_dict(orient="records")
-                del df_daily
-                gc.collect()
+                daily_gen = df_daily.replace({np.nan: None}).to_dict(orient="records")
+                
+                # Para el cache de análisis
+                raw_data_cache["solar"] = df_clean.replace({np.nan: None}).to_dict(orient="records")
+                
+                del df; del df_clean; del df_daily; gc.collect()
                 
             elif name_key == "history_data":
                 df = download_csv_to_dataframe(service, file_info['id'])
                 raw_summary[name_key] = len(df)
                 historicos = clean_history_data(df)
-                del df
-                gc.collect()
+                
                 if "battery_soc" in historicos:
-                    battery_soc = historicos["battery_soc"].to_dict(orient="records")
-                del historicos
-                gc.collect()
+                    battery_soc = historicos["battery_soc"].replace({np.nan: None}).to_dict(orient="records")
+                
+                raw_data_cache["history"] = df.replace({np.nan: None}).to_dict(orient="records")
+                del df; del historicos; gc.collect()
+                
+            elif name_key == "history_alarm":
+                df = download_csv_to_dataframe(service, file_info['id'])
+                raw_summary[name_key] = len(df)
+                raw_data_cache["alarms"] = df.replace({np.nan: None}).to_dict(orient="records")
+                del df; gc.collect()
             else:
                 # Para los demas, omitimos descarga temporalmente para no dar OOM.
                 # Si necesitamos summary, lo ponemos en 0 por ahora.
@@ -173,6 +181,7 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
             "daily_generation": daily_gen,
             "battery_soc": battery_soc,
             "raw_data_summary": raw_summary,
+            "raw_data": raw_data_cache,
         }
 
         metadata = {

@@ -5,9 +5,10 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Sun, Zap, Battery, Cpu, Bell,
-  ChevronLeft, ArrowRight,
+  ChevronLeft, ArrowRight, LayoutDashboard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ResultsDashboard } from '../dashboard/ResultsDashboard';
 import { PanelA1Generation } from './PanelA1Generation';
 import { PanelA2HourlyProfile } from './PanelA2HourlyProfile';
 import { PanelA3CalendarHeatmap } from './PanelA3CalendarHeatmap';
@@ -30,11 +31,12 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: 'generation',  label: 'Generación Solar',  icon: Sun,     color: '#008ED3', available: true,  phase: 'Fase 2' },
-  { id: 'consumption', label: 'Consumo & Ahorro',  icon: Zap,     color: '#00A86B', available: true,  phase: 'Fase 3' },
-  { id: 'batteries',   label: 'Baterías & SPU',    icon: Battery, color: '#F59E0B', available: true,  phase: 'Fase 4' },
-  { id: 'system',      label: 'Sistema & Equipos', icon: Cpu,     color: '#8B5CF6', available: true,  phase: 'Fase 5' },
-  { id: 'alarms',      label: 'Alarmas & Eventos', icon: Bell,    color: '#EF4444', available: true,  phase: 'Fase 5' },
+  { id: 'resumen',     label: 'Resumen',           icon: LayoutDashboard, color: '#008ED3', available: true,  phase: 'Fase 1' },
+  { id: 'generation',  label: 'Generación Solar',  icon: Sun,             color: '#008ED3', available: true,  phase: 'Fase 2' },
+  { id: 'consumption', label: 'Consumo & Ahorro',  icon: Zap,             color: '#00A86B', available: true,  phase: 'Fase 3' },
+  { id: 'batteries',   label: 'Baterías & SPU',    icon: Battery,         color: '#F59E0B', available: true,  phase: 'Fase 4' },
+  { id: 'system',      label: 'Sistema & Equipos', icon: Cpu,             color: '#8B5CF6', available: true,  phase: 'Fase 5' },
+  { id: 'alarms',      label: 'Alarmas & Eventos', icon: Bell,            color: '#EF4444', available: true,  phase: 'Fase 5' },
 ];
 
 // ─── Coming Soon placeholder ─────────────────────────────────
@@ -137,11 +139,13 @@ function CategoryAlarms({ projectId }: { projectId: string }) {
 interface AnalysisDashboardProps {
   projectId: string;
   projectName: string;
+  jobResult: any;
+  fromCache: boolean;
   onBack: () => void;
 }
 
-export function AnalysisDashboard({ projectId, projectName, onBack }: AnalysisDashboardProps) {
-  const [activeTab, setActiveTab] = useState('generation');
+export function AnalysisDashboard({ projectId, projectName, jobResult, fromCache, onBack }: AnalysisDashboardProps) {
+  const [activeTab, setActiveTab] = useState('resumen');
   const activeTabData = TABS.find(t => t.id === activeTab)!;
 
   return (
@@ -214,7 +218,24 @@ export function AnalysisDashboard({ projectId, projectName, onBack }: AnalysisDa
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.18 }}
             >
-              {activeTab === 'generation' && activeTabData.available
+              {activeTab === 'resumen' && activeTabData.available
+                ? (
+                  jobResult ? (
+                    <div className="-m-5">
+                      <ResultsDashboard
+                        result={jobResult}
+                        fromCache={fromCache}
+                        onClose={onBack}
+                        isEmbedded={true}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-64 text-muted-foreground">
+                      Cargando resumen...
+                    </div>
+                  )
+                )
+                : activeTab === 'generation' && activeTabData.available
                 ? <CategoryGeneration projectId={projectId} />
                 : activeTab === 'consumption' && activeTabData.available
                 ? <CategoryConsumption projectId={projectId} />

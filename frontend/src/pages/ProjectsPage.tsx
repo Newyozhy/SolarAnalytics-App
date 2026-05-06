@@ -7,7 +7,6 @@ import { FolderTree } from '@/components/explorer/FolderTree';
 import { FolderContent } from '@/components/explorer/FolderContent';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ResultsDashboard } from '@/components/dashboard/ResultsDashboard';
 import { AnalysisDashboard } from '@/components/analysis/AnalysisDashboard';
 import { projectsApi } from '@/api/projects';
 import type { Folder } from '@/api/projects';
@@ -48,7 +47,6 @@ export function ProjectsPage() {
   const [jobStatus, setJobStatus] = useState<string>('pending');
   const [jobResult, setJobResult] = useState<any>(null);
   const [jobError, setJobError] = useState<string | null>(null);
-  const [showResults, setShowResults] = useState(false);
   const [fromCache, setFromCache] = useState(false);
 
   // Analysis dashboard state
@@ -85,9 +83,8 @@ export function ProjectsPage() {
     const cached = await loadCachedResult(folder.id);
     if (cached?.result_json) {
       setJobResult(cached.result_json);
-      setProcessingFolder(folder);
       setFromCache(true);
-      setShowResults(true);
+      setAnalysisTarget({ id: folder.id, name: folder.name });
     }
   }, [loadCachedResult]);
 
@@ -141,9 +138,8 @@ export function ProjectsPage() {
           setJobResult(data.result);
           setFromCache(data.from_cache ?? false);
           setJobId(null);
-          setShowResults(true);
-          // Refresh cache badge for this folder
           if (processingFolder) {
+            setAnalysisTarget({ id: processingFolder.id, name: processingFolder.name });
             invalidate(processingFolder.id);
             loadCacheStatus(currentFolders.map(f => f.id));
           }
@@ -197,17 +193,9 @@ export function ProjectsPage() {
             <AnalysisDashboard
               projectId={analysisTarget.id}
               projectName={analysisTarget.name}
-              onBack={() => setAnalysisTarget(null)}
-            />
-          ) : showResults && jobResult ? (
-            <ResultsDashboard
-              result={jobResult}
+              jobResult={jobResult}
               fromCache={fromCache}
-              onClose={() => { setShowResults(false); setJobResult(null); setFromCache(false); }}
-              onOpenAnalysis={(id, name) => {
-                setShowResults(false);
-                setAnalysisTarget({ id, name });
-              }}
+              onBack={() => setAnalysisTarget(null)}
             />
           ) : (
             <FolderContent
@@ -220,7 +208,7 @@ export function ProjectsPage() {
               onNavigate={handleNavigate}
               onProcess={handleProcess}
               onViewCached={handleViewCached}
-              onOpenAnalysis={(folder) => setAnalysisTarget({ id: folder.id, name: folder.name })}
+              onOpenAnalysis={handleViewCached}
               processedMap={Object.fromEntries(
                 Object.entries(cacheMap).map(([id, v]) => [
                   id,
