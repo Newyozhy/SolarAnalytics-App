@@ -4,6 +4,7 @@ Prefijo: /api/v1/analysis/{project_id}/
 """
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Literal
+from functools import lru_cache
 import gc
 
 from app.services.drive_service import get_drive_service, download_project_data
@@ -18,6 +19,7 @@ router = APIRouter()
 # HELPER — Carga DataFrames del proyecto (caché → Drive)
 # ─────────────────────────────────────────────────────────────
 
+@lru_cache(maxsize=10)
 def _load_project_dataframes(project_id: str) -> dict:
     """
     Carga los DataFrames del proyecto.
