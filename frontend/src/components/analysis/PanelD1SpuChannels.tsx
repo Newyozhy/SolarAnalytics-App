@@ -1,6 +1,7 @@
 // Panel D-1 — Rendimiento por Canal SPU (horizontal bar chart)
 // Alerta automática si algún canal genera < 50% del promedio
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Cpu, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,6 +16,7 @@ const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 interface PanelD1Props { projectId: string; }
 
 export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
+  const { t } = useTranslation();
   const [data, setData]       = useState<SpuResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +43,7 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
       type: 'bar',
       orientation: 'h',
       x: rows.map(r => r.total_kwh),
-      y: rows.map(r => `Canal ${r.channel}`),
+      y: rows.map(r => `${t('panels.d1.channel')} ${r.channel}`),
       marker: {
         color: rows.map(r =>
           r.total_kwh < avgKwh * 0.5
@@ -86,7 +88,7 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
               </div>
               <div>
                 <p className="text-[12px] font-semibold text-amber-300">
-                  {lowChannelWarnings.length} canal{lowChannelWarnings.length > 1 ? 'es' : ''} con rendimiento bajo
+                  {lowChannelWarnings.length} {lowChannelWarnings.length > 1 ? t('panels.d1.lowChannelsPlural') : t('panels.d1.lowChannels')}
                 </p>
                 <div className="mt-2 space-y-1.5">
                   {lowChannelWarnings.map((w, i) => (
@@ -95,9 +97,7 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
                     </p>
                   ))}
                 </div>
-                <p className="text-[10px] text-amber-500/50 mt-2">
-                  Verificar el panel solar, string o cableado del canal afectado.
-                </p>
+                <p className="text-[10px] text-amber-500/50 mt-2">{t('panels.d1.checkCable')}</p>
               </div>
             </div>
           </motion.div>
@@ -106,8 +106,8 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
 
       <ChartPanel
         index={1}
-        title="Energía Acumulada por Canal SPU"
-        subtitle="Total de kWh generados históricamente por cada canal del Sistema de Paneles Solares Unificado"
+        title={t('panels.d1.title')}
+        subtitle={t('panels.d1.subtitle')}
         insight={insight}
         loading={loading}
         height={Math.max(260, (data?.data.length ?? 4) * 44 + 60)}
@@ -118,9 +118,9 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
               <Cpu className="w-6 h-6 opacity-30" />
             </div>
             <div className="text-center">
-              <p className="text-xs font-medium">Sin datos de canales SPU</p>
+              <p className="text-xs font-medium">{t('panels.d1.noData')}</p>
               <p className="text-[11px] opacity-60 mt-1">
-                No se encontraron señales <code className="font-mono bg-muted/40 px-1 rounded">SPCU_*</code> en este proyecto
+                {t('panels.d1.noDataSub')}
               </p>
             </div>
           </div>
@@ -138,7 +138,7 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
                 linecolor: 'transparent',
                 tickfont: { size: 10 },
                 zeroline: false,
-                title: { text: 'kWh acumulados', font: { size: 11 } },
+                title: { text: t('panels.d1.accumulated'), font: { size: 11 } },
               },
               yaxis: {
                 tickfont: { size: 10 },
@@ -159,7 +159,7 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
               annotations: avgKwh > 0 ? [{
                 x: avgKwh, y: -0.5,
                 xref: 'x', yref: 'y',
-                text: `Prom: ${avgKwh.toFixed(1)} kWh`,
+              text: `${t('panels.d1.avg')}: ${avgKwh.toFixed(1)} kWh`,
                 showarrow: false,
                 font: { size: 9, color: '#008ED3' },
                 xanchor: 'left',
@@ -172,7 +172,7 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
         ) : !loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <Info className="w-8 h-8 opacity-20" />
-            <p className="text-xs">Sin datos de canales SPU</p>
+            <p className="text-xs">{t('panels.d1.noData')}</p>
           </div>
         ) : null}
       </ChartPanel>

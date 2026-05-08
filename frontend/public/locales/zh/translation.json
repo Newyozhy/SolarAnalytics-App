@@ -4,37 +4,201 @@
     "reports": "报告",
     "settings": "设置"
   },
+  "sidebar": {
+    "collapse": "折叠面板",
+    "expand": "展开面板",
+    "system": "系统",
+    "admin": "ZTE SPU 管理员"
+  },
   "explorer": {
     "title": "项目浏览器",
+    "navigator": "导航器",
     "search": "搜索项目...",
     "process": "处理",
-    "open": "打开",
+    "open": "查看",
     "back": "返回",
     "noFolders": "未找到文件夹",
     "lastProcessed": "已处理",
     "notProcessed": "未处理",
-    "items": "项",
-    "items_plural": "项"
+    "processed": "已处理",
+    "items": "个项目",
+    "items_plural": "个项目",
+    "collapseNav": "折叠导航栏",
+    "expandNav": "展开导航栏",
+    "dblClickAnalysis": "双击打开分析",
+    "rootFolder": "太阳能板",
+    "navigator": "导航器"
   },
   "processing": {
     "title": "正在处理项目",
-    "downloading": "正在下载数据...",
-    "analyzing": "正在分析数据...",
-    "generating": "正在生成报告...",
-    "complete": "处理完成！",
-    "error": "处理错误"
+    "downloading": "正在下载 Drive 数据",
+    "processing": "正在分析 CSV 文件",
+    "analyzing": "正在分析 CSV 文件",
+    "saving": "正在保存到缓存",
+    "completed": "已完成",
+    "complete": "已完成",
+    "error": "处理错误",
+    "errorTitle": "处理错误",
+    "close": "关闭"
   },
   "dashboard": {
     "totalEnergy": "总电量",
-    "dailyAverage": "日均",
+    "dailyAverage": "日平均值",
     "bestDay": "最佳日",
-    "uptime": "可用性",
+    "uptime": "运行时间",
     "download": "下载",
-    "downloadExcel": "下载Excel",
-    "downloadPptx": "下载PPTX",
+    "downloadExcel": "下载 Excel",
+    "downloadPptx": "下载 PPTX",
     "closeReport": "关闭报告",
-    "dailyGeneration": "日发电量 (kWh)",
-    "batterySoc": "电池荷电状态 (%)"
+    "dailyGeneration": "日发电量（kWh）",
+    "batterySoc": "电池状态（SOC %）",
+    "loadingResume": "正在加载摘要..."
+  },
+  "analysis": {
+    "back": "返回",
+    "tabs": {
+      "resumen": "摘要",
+      "generation": "太阳能发电",
+      "consumption": "消耗与节省",
+      "batteries": "电池与 SPU",
+      "system": "系统与设备",
+      "alarms": "报警与事件"
+    },
+    "comingSoon": "即将推出",
+    "availableIn": "可在此处查看",
+    "consumptionVsGeneration": "消耗与发电对比",
+    "viewInConsumption": "在"消耗与节省"标签中查看"
+  },
+  "panels": {
+    "a1": {
+      "title": "按时段统计太阳能产量",
+      "subtitle": "按时段分组的净发电量或运行持续时间",
+      "metricEnergy": "电量（kWh）",
+      "metricDuration": "持续时间（h）",
+      "kwh": "已发电 kWh",
+      "hours": "运行小时",
+      "fragDays": "中断天数",
+      "noData": "无太阳能发电数据"
+    },
+    "a2": {
+      "title": "小时发电概况",
+      "subtitle": "全天平均太阳能发电分布（00:00 – 23:00）",
+      "metricMinutes": "活跃分钟",
+      "metricKwh": "平均 kWh",
+      "metricKwhCum": "累计 kWh",
+      "noData": "无法生成小时概况的数据",
+      "peakHour": "峰值小时"
+    },
+    "a3": {
+      "title": "日历热图",
+      "subtitle": "每日太阳能发电 — 绿色越深 = 产量越高 · ⚠️ 多次中断的天数",
+      "noData": "无热图数据",
+      "bestDay": "最佳日",
+      "avg": "平均",
+      "fragDays": "检测到碎片化天数",
+      "noFragDays": "无碎片化天数"
+    },
+    "b1": {
+      "title": "小时概况：消耗 vs 太阳能发电",
+      "subtitle": "站点基础消耗、太阳能发电和净电网消耗的逐小时对比",
+      "baseConsumption": "站点基础消耗（kWh/h）",
+      "baseConsumptionShort": "基础消耗",
+      "quickPresets": "快速预设",
+      "apply": "应用",
+      "baseInfo": "ℹ️ 基础消耗是指站点在无太阳能情况下的 kWh/h 消耗量，因项目和城市而异。",
+      "saving": "节省（kWh）",
+      "netConsumption": "净电网消耗",
+      "solarGeneration": "平均太阳能发电",
+      "baseConsumptionLine": "基础消耗",
+      "noData": "配置基础消耗以查看对比概况",
+      "presetSmall": "小型",
+      "presetMedium": "中型",
+      "presetLarge": "大型"
+    },
+    "b2": {
+      "title": "太阳能发电 vs 净电网消耗",
+      "subtitle": "按时段对比 — 绿色 = 已发电 · 红色 = 从电网购电",
+      "baseConsumption": "基础消耗（kWh/h）",
+      "tariff": "电价",
+      "calculate": "计算",
+      "totalSolar": "总太阳能",
+      "savedKwh": "节省 kWh",
+      "totalSaving": "总节省",
+      "gridConsumption": "电网消耗",
+      "solarAutonomy": "太阳能自给率",
+      "fromGrid": "来自商业电网",
+      "netConsumptionTotal": "总净消耗",
+      "solarKwh": "太阳能发电（kWh）",
+      "netKwh": "净电网消耗（kWh）",
+      "noData": "配置参数并按"计算"",
+      "months": "月",
+      "weeks": "周"
+    },
+    "c1": {
+      "title": "电池状态",
+      "subtitle": "按单元的时间演变",
+      "socLabel": "荷电状态（SOC）",
+      "sohLabel": "电池健康度（SOH）",
+      "voltageLabel": "直流电压",
+      "alertBatteries": "块电池",
+      "alertBatteriesPlural": "块电池",
+      "alertMsg": "SOH 低于建议最低值（80%）",
+      "alertSub": "建议进行技术检查和可能的更换",
+      "showDetail": "查看详情",
+      "hideDetail": "隐藏",
+      "voltageInfo": "参考线：LLVD1 = 47V（低压断开）· BLVD = 46V（电池保护）。电压低于此值表示存在风险。",
+      "noData": "无电池数据",
+      "noDataSub": "需要 history_data.csv 中的信号",
+      "lastPeriod": "最后时段",
+      "avg": "平均",
+      "min": "最小",
+      "max": "最大",
+      "monitored": "个被监控单元",
+      "monitoredPlural": "个被监控单元",
+      "belowMin": "低于最小值",
+      "minRecommended": "建议最低值（80%）"
+    },
+    "d1": {
+      "title": "各 SPU 通道累计电量",
+      "subtitle": "统一太阳能电板系统每个通道历史发电的总 kWh",
+      "lowChannels": "个通道性能偏低",
+      "lowChannelsPlural": "个通道性能偏低",
+      "checkCable": "检查太阳能板、串列或通道布线。",
+      "noData": "无 SPU 通道数据",
+      "noDataSub": "此项目中未找到 SPCU_* 信号",
+      "avg": "平均",
+      "allNormal": "✅ 所有通道均在正常范围内运行",
+      "accumulated": "累计 kWh",
+      "channel": "通道"
+    },
+    "d2": {
+      "title": "直流功率和系统温度",
+      "subtitle": "站点负载（kW）、总太阳能发电（kW）和设备温度的演变",
+      "powerKw": "功率（kW）",
+      "tempC": "温度（°C）",
+      "noData": "此项目无功率或温度数据",
+      "avgLoad": "负载",
+      "avgSource": "发电",
+      "avgTemp": "温度"
+    },
+    "e1": {
+      "title": "报警与事件记录",
+      "subtitle": "站点设备产生的报警详细记录",
+      "filterDevice": "按设备筛选...",
+      "noData": "所选筛选条件下未找到报警",
+      "showing": "显示",
+      "alarmsOf": "条报警，共",
+      "total": "条",
+      "critical": "严重",
+      "major": "重要",
+      "affectedDevices": "受影响设备",
+      "duration": "分钟"
+    }
+  },
+  "granularity": {
+    "day": "天",
+    "week": "周",
+    "month": "月"
   },
   "theme": {
     "light": "浅色模式",
@@ -44,5 +208,17 @@
     "es": "Español",
     "en": "English",
     "zh": "中文"
+  },
+  "common": {
+    "loading": "加载中...",
+    "noData": "无可用数据",
+    "error": "错误",
+    "retry": "重试",
+    "close": "关闭",
+    "apply": "应用",
+    "calculate": "计算",
+    "days": "天",
+    "hours": "小时",
+    "minutes": "分钟"
   }
 }

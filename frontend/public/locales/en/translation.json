@@ -4,25 +4,42 @@
     "reports": "Reports",
     "settings": "Settings"
   },
+  "sidebar": {
+    "collapse": "Collapse panel",
+    "expand": "Expand panel",
+    "system": "System",
+    "admin": "ZTE SPU Admin"
+  },
   "explorer": {
     "title": "Project Explorer",
+    "navigator": "Navigator",
     "search": "Search projects...",
     "process": "Process",
-    "open": "Open",
+    "open": "View",
     "back": "Back",
     "noFolders": "No folders found",
     "lastProcessed": "Processed",
     "notProcessed": "Not processed",
+    "processed": "Processed",
     "items": "item",
-    "items_plural": "items"
+    "items_plural": "items",
+    "collapseNav": "Collapse navigator",
+    "expandNav": "Expand navigator",
+    "dblClickAnalysis": "Double-click to open analysis",
+    "rootFolder": "Solar Panels",
+    "navigator": "Navigator"
   },
   "processing": {
     "title": "Processing Project",
-    "downloading": "Downloading data...",
-    "analyzing": "Analyzing data...",
-    "generating": "Generating reports...",
-    "complete": "Processing complete!",
-    "error": "Processing error"
+    "downloading": "Downloading Drive data",
+    "processing": "Analyzing CSVs",
+    "analyzing": "Analyzing CSVs",
+    "saving": "Saving to cache",
+    "completed": "Completed",
+    "complete": "Completed",
+    "error": "Processing error",
+    "errorTitle": "Processing error",
+    "close": "Close"
   },
   "dashboard": {
     "totalEnergy": "Total Energy",
@@ -34,7 +51,154 @@
     "downloadPptx": "Download PPTX",
     "closeReport": "Close Report",
     "dailyGeneration": "Daily Generation (kWh)",
-    "batterySoc": "Battery State of Charge (%)"
+    "batterySoc": "Battery Status (SOC %)",
+    "loadingResume": "Loading summary..."
+  },
+  "analysis": {
+    "back": "Back",
+    "tabs": {
+      "resumen": "Summary",
+      "generation": "Solar Generation",
+      "consumption": "Consumption & Savings",
+      "batteries": "Batteries & SPU",
+      "system": "System & Equipment",
+      "alarms": "Alarms & Events"
+    },
+    "comingSoon": "Coming soon",
+    "availableIn": "Available in",
+    "consumptionVsGeneration": "Consumption vs Generation Profile",
+    "viewInConsumption": "View in Consumption & Savings tab"
+  },
+  "panels": {
+    "a1": {
+      "title": "Solar Production by Period",
+      "subtitle": "Net energy generated or operating duration grouped by period",
+      "metricEnergy": "Energy (kWh)",
+      "metricDuration": "Duration (h)",
+      "kwh": "kWh generated",
+      "hours": "Active hours",
+      "fragDays": "Days with interruptions",
+      "noData": "No solar generation data available"
+    },
+    "a2": {
+      "title": "Hourly Generation Profile",
+      "subtitle": "Average solar generation distribution throughout the day (00:00 – 23:00)",
+      "metricMinutes": "Active minutes",
+      "metricKwh": "Average kWh",
+      "metricKwhCum": "Cumulative kWh",
+      "noData": "No data to generate hourly profile",
+      "peakHour": "Peak hour"
+    },
+    "a3": {
+      "title": "Calendar Heat Map",
+      "subtitle": "Daily solar generation — darker green = higher output · ⚠️ days with multiple interruptions",
+      "noData": "No data for heatmap",
+      "bestDay": "Best day",
+      "avg": "Average",
+      "fragDays": "fragmented days detected",
+      "noFragDays": "No fragmented days"
+    },
+    "b1": {
+      "title": "Hourly Profile: Consumption vs Solar Generation",
+      "subtitle": "Hour-by-hour comparison of site base consumption, solar generation and net grid consumption",
+      "baseConsumption": "Site base consumption (kWh/h)",
+      "baseConsumptionShort": "Base consumption",
+      "quickPresets": "Quick presets",
+      "apply": "Apply",
+      "baseInfo": "ℹ️ Base consumption is the kWh/h the site would consume without solar energy. Varies by project and city.",
+      "saving": "Savings (kWh)",
+      "netConsumption": "Net grid consumption",
+      "solarGeneration": "Average solar generation",
+      "baseConsumptionLine": "Base consumption",
+      "noData": "Configure base consumption to view comparison profile",
+      "presetSmall": "small",
+      "presetMedium": "medium",
+      "presetLarge": "large"
+    },
+    "b2": {
+      "title": "Solar Generated vs Net Grid Consumption",
+      "subtitle": "Period comparison — green = energy produced · red = energy purchased from grid",
+      "baseConsumption": "Base consumption (kWh/h)",
+      "tariff": "Electricity tariff",
+      "calculate": "Calculate",
+      "totalSolar": "Total Solar",
+      "savedKwh": "kWh Saved",
+      "totalSaving": "Total Savings",
+      "gridConsumption": "Grid Consumption",
+      "solarAutonomy": "solar autonomy",
+      "fromGrid": "From commercial grid",
+      "netConsumptionTotal": "Total net consumption",
+      "solarKwh": "Solar generation (kWh)",
+      "netKwh": "Net grid consumption (kWh)",
+      "noData": "Configure parameters and press Calculate",
+      "months": "Months",
+      "weeks": "Weeks"
+    },
+    "c1": {
+      "title": "Battery Status",
+      "subtitle": "Temporal evolution by unit",
+      "socLabel": "state of charge (SOC)",
+      "sohLabel": "battery health (SOH)",
+      "voltageLabel": "DC voltage",
+      "alertBatteries": "battery",
+      "alertBatteriesPlural": "batteries",
+      "alertMsg": "with SOH below recommended minimum (80%)",
+      "alertSub": "Technical review and possible replacement recommended",
+      "showDetail": "View detail",
+      "hideDetail": "Hide",
+      "voltageInfo": "Reference lines: LLVD1 = 47V (low voltage disconnect) · BLVD = 46V (battery protection). Voltages below indicate risk.",
+      "noData": "No battery data available",
+      "noDataSub": "Signal required in CSV history_data.csv",
+      "lastPeriod": "Last period",
+      "avg": "Average",
+      "min": "Min",
+      "max": "Max",
+      "monitored": "monitored unit",
+      "monitoredPlural": "monitored units",
+      "belowMin": "below minimum",
+      "minRecommended": "Min. recommended (80%)"
+    },
+    "d1": {
+      "title": "Accumulated Energy by SPU Channel",
+      "subtitle": "Total kWh historically generated by each Unified Solar Panel System channel",
+      "lowChannels": "channel with low performance",
+      "lowChannelsPlural": "channels with low performance",
+      "checkCable": "Check the solar panel, string or channel wiring.",
+      "noData": "No SPU channel data",
+      "noDataSub": "No SPCU_* signals found in this project",
+      "avg": "Avg",
+      "allNormal": "✅ All channels operating within normal range",
+      "accumulated": "Accumulated kWh",
+      "channel": "Channel"
+    },
+    "d2": {
+      "title": "DC Power and System Temperature",
+      "subtitle": "Evolution of site load (kW), total solar generation (kW) and equipment temperature",
+      "powerKw": "Power (kW)",
+      "tempC": "Temperature (°C)",
+      "noData": "No power or temperature data available for this project",
+      "avgLoad": "Load",
+      "avgSource": "Generation",
+      "avgTemp": "Temp"
+    },
+    "e1": {
+      "title": "Alarms & Events Log",
+      "subtitle": "Detailed record of alarms generated by site equipment",
+      "filterDevice": "Filter by device...",
+      "noData": "No alarms found for selected filters",
+      "showing": "Showing",
+      "alarmsOf": "alarms of",
+      "total": "total",
+      "critical": "Critical",
+      "major": "Major",
+      "affectedDevices": "Affected devices",
+      "duration": "min"
+    }
+  },
+  "granularity": {
+    "day": "Days",
+    "week": "Weeks",
+    "month": "Months"
   },
   "theme": {
     "light": "Light Mode",
@@ -44,5 +208,17 @@
     "es": "Español",
     "en": "English",
     "zh": "中文"
+  },
+  "common": {
+    "loading": "Loading...",
+    "noData": "No data available",
+    "error": "Error",
+    "retry": "Retry",
+    "close": "Close",
+    "apply": "Apply",
+    "calculate": "Calculate",
+    "days": "days",
+    "hours": "hours",
+    "minutes": "minutes"
   }
 }

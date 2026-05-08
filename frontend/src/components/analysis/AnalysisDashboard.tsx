@@ -1,8 +1,7 @@
 // AnalysisDashboard — Main tabbed analysis view with 5 categories
-// Category A (Solar Generation) fully implemented in Phase 2
-// Categories B-E show "coming soon" placeholders
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import {
   Sun, Zap, Battery, Cpu, Bell,
   ChevronLeft, ArrowRight, LayoutDashboard
@@ -23,7 +22,7 @@ import { PanelE1Alarms } from './PanelE1Alarms';
 
 interface Tab {
   id: string;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
   color: string;
   available: boolean;
@@ -31,17 +30,18 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: 'resumen',     label: 'Resumen',           icon: LayoutDashboard, color: '#008ED3', available: true,  phase: 'Fase 1' },
-  { id: 'generation',  label: 'Generación Solar',  icon: Sun,             color: '#008ED3', available: true,  phase: 'Fase 2' },
-  { id: 'consumption', label: 'Consumo & Ahorro',  icon: Zap,             color: '#00A86B', available: true,  phase: 'Fase 3' },
-  { id: 'batteries',   label: 'Baterías & SPU',    icon: Battery,         color: '#F59E0B', available: true,  phase: 'Fase 4' },
-  { id: 'system',      label: 'Sistema & Equipos', icon: Cpu,             color: '#8B5CF6', available: true,  phase: 'Fase 5' },
-  { id: 'alarms',      label: 'Alarmas & Eventos', icon: Bell,            color: '#EF4444', available: true,  phase: 'Fase 5' },
+  { id: 'resumen',     labelKey: 'analysis.tabs.resumen',     icon: LayoutDashboard, color: '#008ED3', available: true,  phase: 'Fase 1' },
+  { id: 'generation',  labelKey: 'analysis.tabs.generation',  icon: Sun,             color: '#008ED3', available: true,  phase: 'Fase 2' },
+  { id: 'consumption', labelKey: 'analysis.tabs.consumption', icon: Zap,             color: '#00A86B', available: true,  phase: 'Fase 3' },
+  { id: 'batteries',   labelKey: 'analysis.tabs.batteries',   icon: Battery,         color: '#F59E0B', available: true,  phase: 'Fase 4' },
+  { id: 'system',      labelKey: 'analysis.tabs.system',      icon: Cpu,             color: '#8B5CF6', available: true,  phase: 'Fase 5' },
+  { id: 'alarms',      labelKey: 'analysis.tabs.alarms',      icon: Bell,            color: '#EF4444', available: true,  phase: 'Fase 5' },
 ];
 
 // ─── Coming Soon placeholder ─────────────────────────────────
 
 function ComingSoon({ tab }: { tab: Tab }) {
+  const { t } = useTranslation();
   const Icon = tab.icon;
   return (
     <motion.div
@@ -56,9 +56,9 @@ function ComingSoon({ tab }: { tab: Tab }) {
         <Icon className="w-8 h-8" style={{ color: tab.color }} />
       </div>
       <div>
-        <p className="text-base font-semibold text-foreground">{tab.label}</p>
+        <p className="text-base font-semibold text-foreground">{t(tab.labelKey)}</p>
         <p className="text-sm text-muted-foreground mt-1">
-          Disponible en <span className="font-semibold" style={{ color: tab.color }}>{tab.phase}</span>
+          {t('analysis.availableIn')} <span className="font-semibold" style={{ color: tab.color }}>{tab.phase}</span>
         </p>
       </div>
       <div
@@ -66,7 +66,7 @@ function ComingSoon({ tab }: { tab: Tab }) {
         style={{ background: `${tab.color}10`, color: tab.color }}
       >
         <ArrowRight className="w-3 h-3" />
-        Próximamente
+        {t('analysis.comingSoon')}
       </div>
     </motion.div>
   );
@@ -75,6 +75,7 @@ function ComingSoon({ tab }: { tab: Tab }) {
 // ─── Category A — Solar Generation ─────────────────────────
 
 function CategoryGeneration({ projectId }: { projectId: string }) {
+  const { t } = useTranslation();
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
       <PanelA1Generation projectId={projectId} />
@@ -83,7 +84,7 @@ function CategoryGeneration({ projectId }: { projectId: string }) {
         <div className="rounded-2xl border border-border/40 border-dashed bg-muted/10 flex flex-col items-center justify-center gap-3 p-8 min-h-[300px]">
           <Zap className="w-8 h-8 text-muted-foreground opacity-30" />
           <p className="text-xs text-muted-foreground opacity-60 text-center">
-            Perfil de Consumo vs Generación<br /><span className="text-[10px]">Ver en pestaña Consumo & Ahorro</span>
+            {t('analysis.consumptionVsGeneration')}<br /><span className="text-[10px]">{t('analysis.viewInConsumption')}</span>
           </p>
         </div>
       </div>
@@ -92,7 +93,7 @@ function CategoryGeneration({ projectId }: { projectId: string }) {
   );
 }
 
-// ─── Category B — Consumo & Ahorro ──────────────────────────
+// ─── Category B — Consumption & Savings ──────────────────────────
 
 function CategoryConsumption({ projectId }: { projectId: string }) {
   return (
@@ -103,7 +104,7 @@ function CategoryConsumption({ projectId }: { projectId: string }) {
   );
 }
 
-// ─── Category C+D — Baterías & SPU ───────────────────────
+// ─── Category C+D — Batteries & SPU ───────────────────────
 
 function CategoryBatteries({ projectId }: { projectId: string }) {
   return (
@@ -114,7 +115,7 @@ function CategoryBatteries({ projectId }: { projectId: string }) {
   );
 }
 
-// ─── Category D — Sistema & Equipos ────────────────────────
+// ─── Category D — System & Equipment ────────────────────────
 
 function CategorySystem({ projectId }: { projectId: string }) {
   return (
@@ -124,7 +125,7 @@ function CategorySystem({ projectId }: { projectId: string }) {
   );
 }
 
-// ─── Category E — Alarmas & Eventos ────────────────────────
+// ─── Category E — Alarms & Events ────────────────────────
 
 function CategoryAlarms({ projectId }: { projectId: string }) {
   return (
@@ -145,8 +146,9 @@ interface AnalysisDashboardProps {
 }
 
 export function AnalysisDashboard({ projectId, projectName, jobResult, fromCache, onBack }: AnalysisDashboardProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('resumen');
-  const activeTabData = TABS.find(t => t.id === activeTab)!;
+  const activeTabData = TABS.find(tab => tab.id === activeTab)!;
 
   return (
     <div className="flex flex-col h-full">
@@ -159,7 +161,7 @@ export function AnalysisDashboard({ projectId, projectName, jobResult, fromCache
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
-            Volver
+            {t('analysis.back')}
           </button>
           <span className="text-border">·</span>
           <div className="flex items-center gap-2 min-w-0">
@@ -195,7 +197,7 @@ export function AnalysisDashboard({ projectId, projectName, jobResult, fromCache
                 style={active ? { color: tab.color, borderColor: tab.color } : {}}
               >
                 <Icon className="w-3.5 h-3.5" />
-                {tab.label}
+                {t(tab.labelKey)}
                 {!tab.available && (
                   <span className="ml-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-muted/60 text-muted-foreground">
                     {tab.phase}
@@ -231,7 +233,7 @@ export function AnalysisDashboard({ projectId, projectName, jobResult, fromCache
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-64 text-muted-foreground">
-                      Cargando resumen...
+                      {t('dashboard.loadingResume')}
                     </div>
                   )
                 )

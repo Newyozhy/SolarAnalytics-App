@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, Folder, FolderOpen, CheckCircle2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { Folder as FolderType } from '@/api/projects';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ function TreeItem({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [children, setChildren] = useState<TreeNode[]>([]);
+  const { t } = useTranslation();
   const isSelected = selectedId === node.id;
   const isProcessed = processedIds?.has(node.id) ?? false;
 
@@ -84,7 +86,7 @@ function TreeItem({
               : 'text-muted-foreground hover:text-foreground'
         )}
         style={{ paddingLeft: `${8 + depth * 16}px`, paddingRight: '8px' }}
-        title={isProcessed ? `${node.name} — Doble clic para ver análisis` : node.name}
+        title={isProcessed ? `${node.name} — ${t('explorer.dblClickAnalysis')}` : node.name}
       >
         {/* Expand button */}
         <button
@@ -158,15 +160,10 @@ function TreeItem({
 }
 
 export function FolderTree({
-  roots,
-  selectedId,
-  onSelect,
-  onExpand,
-  processedIds,
-  onOpenAnalysis,
-  isCollapsed,
-  onToggleCollapse,
+  roots, selectedId, onSelect, onExpand,
+  processedIds, onOpenAnalysis, isCollapsed, onToggleCollapse,
 }: FolderTreeProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col h-full">
       {/* Panel header with toggle */}
@@ -182,7 +179,7 @@ export function FolderTree({
               exit={{ opacity: 0 }}
               className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
             >
-              Navegador
+              {t('explorer.navigator')}
             </motion.span>
           )}
         </AnimatePresence>
@@ -196,7 +193,7 @@ export function FolderTree({
             'text-muted-foreground hover:text-zte-blue hover:bg-zte-blue/10',
             'transition-colors duration-150'
           )}
-          title={isCollapsed ? 'Expandir navegador' : 'Colapsar navegador'}
+          title={isCollapsed ? t('explorer.expandNav') : t('explorer.collapseNav')}
         >
           {isCollapsed
             ? <PanelLeftOpen className="w-3.5 h-3.5" />

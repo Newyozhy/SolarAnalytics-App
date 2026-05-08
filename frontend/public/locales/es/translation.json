@@ -4,25 +4,42 @@
     "reports": "Reportes",
     "settings": "Configuración"
   },
+  "sidebar": {
+    "collapse": "Colapsar panel",
+    "expand": "Expandir panel",
+    "system": "Sistema",
+    "admin": "ZTE SPU Admin"
+  },
   "explorer": {
     "title": "Explorador de Proyectos",
+    "navigator": "Navegador",
     "search": "Buscar proyectos...",
     "process": "Procesar",
     "open": "Abrir",
-    "back": "Atrás",
+    "back": "Volver",
     "noFolders": "No se encontraron carpetas",
     "lastProcessed": "Procesado hace",
     "notProcessed": "Sin procesar",
+    "processed": "Procesado",
     "items": "elemento",
-    "items_plural": "elementos"
+    "items_plural": "elementos",
+    "collapseNav": "Colapsar navegador",
+    "expandNav": "Expandir navegador",
+    "dblClickAnalysis": "Doble clic para ver análisis",
+    "rootFolder": "Paneles Solares",
+    "navigator": "Navegador"
   },
   "processing": {
     "title": "Procesando Proyecto",
-    "downloading": "Descargando datos...",
-    "analyzing": "Analizando información...",
-    "generating": "Generando reportes...",
-    "complete": "¡Procesamiento completado!",
-    "error": "Error al procesar"
+    "downloading": "Descargando datos de Drive",
+    "processing": "Analizando CSVs",
+    "analyzing": "Analizando CSVs",
+    "saving": "Guardando en caché",
+    "completed": "Completado",
+    "complete": "Completado",
+    "error": "Error de procesamiento",
+    "errorTitle": "Error de procesamiento",
+    "close": "Cerrar"
   },
   "dashboard": {
     "totalEnergy": "Energía Total",
@@ -34,7 +51,154 @@
     "downloadPptx": "Descargar PPTX",
     "closeReport": "Cerrar Reporte",
     "dailyGeneration": "Generación Diaria (kWh)",
-    "batterySoc": "Estado de Batería (SOC %)"
+    "batterySoc": "Estado de Batería (SOC %)",
+    "loadingResume": "Cargando resumen..."
+  },
+  "analysis": {
+    "back": "Volver",
+    "tabs": {
+      "resumen": "Resumen",
+      "generation": "Generación Solar",
+      "consumption": "Consumo & Ahorro",
+      "batteries": "Baterías & SPU",
+      "system": "Sistema & Equipos",
+      "alarms": "Alarmas & Eventos"
+    },
+    "comingSoon": "Próximamente",
+    "availableIn": "Disponible en",
+    "consumptionVsGeneration": "Perfil de Consumo vs Generación",
+    "viewInConsumption": "Ver en pestaña Consumo & Ahorro"
+  },
+  "panels": {
+    "a1": {
+      "title": "Producción Solar por Período",
+      "subtitle": "Energía neta generada o duración de operación agrupada por período",
+      "metricEnergy": "Energía (kWh)",
+      "metricDuration": "Duración (h)",
+      "kwh": "kWh generados",
+      "hours": "Horas activo",
+      "fragDays": "Días con interrupciones",
+      "noData": "Sin datos de generación solar disponibles"
+    },
+    "a2": {
+      "title": "Perfil Horario de Generación",
+      "subtitle": "Distribución promedio de generación solar a lo largo del día (00:00 – 23:00)",
+      "metricMinutes": "Minutos activos",
+      "metricKwh": "kWh promedio",
+      "metricKwhCum": "kWh acumulado",
+      "noData": "Sin datos para generar el perfil horario",
+      "peakHour": "Hora pico"
+    },
+    "a3": {
+      "title": "Mapa de Calor Calendárico",
+      "subtitle": "Generación solar diaria — color más verde = mayor producción · ⚠️ días con interrupciones múltiples",
+      "noData": "Sin datos para el heatmap",
+      "bestDay": "Mejor día",
+      "avg": "Promedio",
+      "fragDays": "días con múltiples interrupciones detectados",
+      "noFragDays": "Sin días fragmentados"
+    },
+    "b1": {
+      "title": "Perfil Horario: Consumo vs Generación Solar",
+      "subtitle": "Comparativo hora a hora entre consumo base del sitio, generación solar y consumo neto de red",
+      "baseConsumption": "Consumo base del sitio (kWh/h)",
+      "baseConsumptionShort": "Consumo base",
+      "quickPresets": "Presets rápidos",
+      "apply": "Aplicar",
+      "baseInfo": "ℹ️ El consumo base es el kWh/h que el sitio consumiría sin energía solar. Varía por proyecto y ciudad.",
+      "saving": "Ahorro (kWh)",
+      "netConsumption": "Consumo neto de red",
+      "solarGeneration": "Generación solar promedio",
+      "baseConsumptionLine": "Consumo base",
+      "noData": "Configura el consumo base para ver el perfil comparativo",
+      "presetSmall": "pequeño",
+      "presetMedium": "mediano",
+      "presetLarge": "grande"
+    },
+    "b2": {
+      "title": "Solar Generado vs Consumo Neto de Red",
+      "subtitle": "Comparativo por período — verde = energía producida · rojo = energía comprada de la red",
+      "baseConsumption": "Consumo base (kWh/h)",
+      "tariff": "Tarifa eléctrica",
+      "calculate": "Calcular",
+      "totalSolar": "Total Solar",
+      "savedKwh": "kWh Ahorrados",
+      "totalSaving": "Ahorro Total",
+      "gridConsumption": "Consumo de Red",
+      "solarAutonomy": "autonomía solar",
+      "fromGrid": "De la red comercial",
+      "netConsumptionTotal": "Consumo neto total",
+      "solarKwh": "Generación solar (kWh)",
+      "netKwh": "Consumo neto de red (kWh)",
+      "noData": "Configura los parámetros y presiona Calcular",
+      "months": "Meses",
+      "weeks": "Semanas"
+    },
+    "c1": {
+      "title": "Estado de Baterías",
+      "subtitle": "Evolución temporal por unidad",
+      "socLabel": "estado de carga (SOC)",
+      "sohLabel": "salud de la batería (SOH)",
+      "voltageLabel": "voltaje DC",
+      "alertBatteries": "batería",
+      "alertBatteriesPlural": "baterías",
+      "alertMsg": "con SOH bajo el mínimo recomendado (80%)",
+      "alertSub": "Se recomienda revisión técnica y posible reemplazo",
+      "showDetail": "Ver detalle",
+      "hideDetail": "Ocultar",
+      "voltageInfo": "Líneas de referencia: LLVD1 = 47V (desconexión de baja tensión) · BLVD = 46V (protección de batería). Voltajes por debajo indican riesgo.",
+      "noData": "Sin datos de batería disponibles",
+      "noDataSub": "Se requiere la señal en el CSV history_data.csv",
+      "lastPeriod": "Último período",
+      "avg": "Promedio",
+      "min": "Mín",
+      "max": "Máx",
+      "monitored": "unidad monitoreada",
+      "monitoredPlural": "unidades monitoreadas",
+      "belowMin": "bajo el mínimo",
+      "minRecommended": "Mín. recomendado (80%)"
+    },
+    "d1": {
+      "title": "Energía Acumulada por Canal SPU",
+      "subtitle": "Total de kWh generados históricamente por cada canal del Sistema de Paneles Solares Unificado",
+      "lowChannels": "canal con rendimiento bajo",
+      "lowChannelsPlural": "canales con rendimiento bajo",
+      "checkCable": "Verificar el panel solar, string o cableado del canal afectado.",
+      "noData": "Sin datos de canales SPU",
+      "noDataSub": "No se encontraron señales SPCU_* en este proyecto",
+      "avg": "Prom",
+      "allNormal": "✅ Todos los canales operando dentro del rango normal",
+      "accumulated": "kWh acumulados",
+      "channel": "Canal"
+    },
+    "d2": {
+      "title": "Potencia DC y Temperatura del Sistema",
+      "subtitle": "Evolución de la carga del sitio (kW), generación solar total (kW) y temperatura de los equipos",
+      "powerKw": "Potencia (kW)",
+      "tempC": "Temperatura (°C)",
+      "noData": "No hay datos de potencia o temperatura disponibles para este proyecto",
+      "avgLoad": "Carga",
+      "avgSource": "Generación",
+      "avgTemp": "Temp"
+    },
+    "e1": {
+      "title": "Historial de Alarmas y Eventos",
+      "subtitle": "Registro detallado de alarmas generadas por los equipos del sitio",
+      "filterDevice": "Filtrar por dispositivo...",
+      "noData": "No se encontraron alarmas para los filtros seleccionados",
+      "showing": "Mostrando",
+      "alarmsOf": "alarmas de",
+      "total": "totales",
+      "critical": "Críticas",
+      "major": "Mayores",
+      "affectedDevices": "Dispositivos afectados",
+      "duration": "min"
+    }
+  },
+  "granularity": {
+    "day": "Días",
+    "week": "Semanas",
+    "month": "Meses"
   },
   "theme": {
     "light": "Modo Claro",
@@ -44,5 +208,17 @@
     "es": "Español",
     "en": "English",
     "zh": "中文"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "noData": "Sin datos disponibles",
+    "error": "Error",
+    "retry": "Reintentar",
+    "close": "Cerrar",
+    "apply": "Aplicar",
+    "calculate": "Calcular",
+    "days": "días",
+    "hours": "horas",
+    "minutes": "minutos"
   }
 }

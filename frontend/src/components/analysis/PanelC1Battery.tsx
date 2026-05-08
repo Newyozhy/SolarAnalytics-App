@@ -4,6 +4,7 @@
 // Alerta automática cuando SOH < 80%
 // Líneas de umbral en modo voltaje (LLVD1=47V / BLVD=46V)
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Battery, BatteryWarning, AlertTriangle, Info,
   Zap, TrendingDown, Activity, AlertCircle,
@@ -32,6 +33,7 @@ const METRIC_OPTIONS: { value: BatteryMetric; label: string; icon: React.Element
   { value: 'soh',     label: 'SOH (%)',      icon: BatteryWarning },
   { value: 'voltage', label: 'Voltaje (V)',   icon: Zap            },
 ];
+// Note: built as static labels since these are technical abbreviations
 
 interface MetricCfg {
   yTitle: string;
@@ -54,6 +56,7 @@ const METRIC_CFG: Record<BatteryMetric, MetricCfg> = {
 // ─── Alert banner ────────────────────────────────────────────
 
 function AlertBanner({ alerts }: { alerts: BatteryResponse['alerts'] }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   if (!alerts.length) return null;
   return (
@@ -68,17 +71,17 @@ function AlertBanner({ alerts }: { alerts: BatteryResponse['alerts'] }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[12px] font-semibold text-red-300">
-            {alerts.length} batería{alerts.length > 1 ? 's' : ''} con SOH bajo el mínimo recomendado (80%)
+            {alerts.length} {alerts.length > 1 ? t('panels.c1.alertBatteriesPlural') : t('panels.c1.alertBatteries')} {t('panels.c1.alertMsg')}
           </p>
           <p className="text-[11px] text-red-400/70 mt-0.5">
-            Se recomienda revisión técnica y posible reemplazo
+            {t('panels.c1.alertSub')}
           </p>
         </div>
         <button
           onClick={() => setExpanded(e => !e)}
           className="text-[11px] text-red-400/80 hover:text-red-300 px-2 py-1.5 rounded-lg hover:bg-red-500/10 transition-all"
         >
-          {expanded ? 'Ocultar' : 'Ver detalle'}
+          {expanded ? t('panels.c1.hideDetail') : t('panels.c1.showDetail')}
         </button>
       </div>
       <AnimatePresence>
@@ -157,6 +160,7 @@ function SummaryPills({ data, summary }: { data: BatteryResponse; summary: Batte
 // ─── No-data info ─────────────────────────────────────────────
 
 function NoBatteryData({ metric }: { metric: BatteryMetric }) {
+  const { t } = useTranslation();
   const labels: Record<BatteryMetric, string> = {
     soc:     'Battery Present SOC',
     soh:     'Battery SOH',
@@ -168,10 +172,10 @@ function NoBatteryData({ metric }: { metric: BatteryMetric }) {
         <Info className="w-6 h-6 opacity-30" />
       </div>
       <div className="text-center">
-        <p className="text-xs font-medium">Sin datos de batería disponibles</p>
+        <p className="text-xs font-medium">{t('panels.c1.noData')}</p>
         <p className="text-[11px] opacity-60 mt-1">
-          Se requiere la señal <code className="font-mono bg-muted/40 px-1 rounded">{labels[metric]}</code>
-          <br />en el CSV <code className="font-mono bg-muted/40 px-1 rounded">history_data.csv</code>
+          {t('panels.c1.noDataSub')} <code className="font-mono bg-muted/40 px-1 rounded">{labels[metric]}</code>
+          <br />in <code className="font-mono bg-muted/40 px-1 rounded">history_data.csv</code>
         </p>
       </div>
     </div>
@@ -183,6 +187,7 @@ function NoBatteryData({ metric }: { metric: BatteryMetric }) {
 interface PanelC1Props { projectId: string; }
 
 export function PanelC1Battery({ projectId }: PanelC1Props) {
+  const { t } = useTranslation();
   const [metric, setMetric]           = useState<BatteryMetric>('soc');
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [data, setData]               = useState<BatteryResponse | null>(null);
@@ -274,10 +279,7 @@ export function PanelC1Battery({ projectId }: PanelC1Props) {
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-[11px] text-amber-400/80"
         >
           <Activity className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>
-            Líneas de referencia: <strong className="text-amber-300">LLVD1 = 47V</strong> (desconexión de baja tensión) ·
-            <strong className="text-red-300"> BLVD = 46V</strong> (protección de batería). Voltajes por debajo indican riesgo.
-          </span>
+          <span>{t('panels.c1.voltageInfo')}</span>
         </motion.div>
       )}
 
@@ -289,8 +291,8 @@ export function PanelC1Battery({ projectId }: PanelC1Props) {
       {/* Main chart */}
       <ChartPanel
         index={0}
-        title={`Estado de Baterías — ${METRIC_OPTIONS.find(m => m.value === metric)?.label}`}
-        subtitle={`Evolución temporal de ${metric === 'soc' ? 'estado de carga (SOC)' : metric === 'soh' ? 'salud de la batería (SOH)' : 'voltaje DC'} por unidad`}
+        title={`${t('panels.c1.title')} — ${METRIC_OPTIONS.find(m => m.value === metric)?.label}`}
+        subtitle={`${t('analysis.tabs.batteries')} — ${metric === 'soc' ? t('panels.c1.socLabel') : metric === 'soh' ? t('panels.c1.sohLabel') : t('panels.c1.voltageLabel')}`}
         insight={insight}
         loading={loading}
         height={340}

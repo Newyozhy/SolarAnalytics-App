@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import {
-  FolderOpen, BarChart2, Settings, ChevronLeft, ChevronRight,
+  FolderOpen, BarChart2, Settings,
   Activity, Zap, Clock, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import zteLogo from '@/assets/zte-logo.svg';
@@ -76,34 +76,31 @@ export function Sidebar() {
         'bg-sidebar border-r border-sidebar-border'
       )}
     >
-      {/* Header */}
+      {/* Header — Logo + collapse toggle in same row */}
       <div className={cn(
-        'flex items-center border-b border-sidebar-border',
-        collapsed ? 'justify-center p-3' : 'justify-between px-4 py-4'
+        'flex items-center gap-2 border-b border-sidebar-border',
+        collapsed ? 'justify-center p-3' : 'justify-between px-3 py-3'
       )}>
         <ZteLogo collapsed={collapsed} />
-      </div>
 
-      {/* Collapse Toggle — Professional panel button */}
-      <motion.button
-        onClick={() => setCollapsed(!collapsed)}
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.92 }}
-        className={cn(
-          'absolute -right-4 top-[4.25rem] z-20',
-          'w-8 h-8 rounded-full',
-          'flex items-center justify-center',
-          'bg-sidebar border border-sidebar-border shadow-lg',
-          'hover:bg-zte-blue hover:border-zte-blue hover:text-white',
-          'text-muted-foreground transition-colors duration-200'
-        )}
-        title={collapsed ? 'Expandir panel' : 'Colapsar panel'}
-      >
-        {collapsed
-          ? <PanelLeftOpen className="w-4 h-4" />
-          : <PanelLeftClose className="w-4 h-4" />
-        }
-      </motion.button>
+        {/* Collapse Toggle — inline with logo, always visible */}
+        <motion.button
+          onClick={() => setCollapsed(!collapsed)}
+          whileHover={{ scale: 1.1, backgroundColor: 'rgba(0,142,211,0.12)' }}
+          whileTap={{ scale: 0.88 }}
+          className={cn(
+            'flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center',
+            'text-muted-foreground hover:text-zte-blue transition-colors duration-150',
+            collapsed && 'mt-0'
+          )}
+          title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+        >
+          {collapsed
+            ? <PanelLeftOpen className="w-4 h-4" />
+            : <PanelLeftClose className="w-4 h-4" />
+          }
+        </motion.button>
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
@@ -165,6 +162,7 @@ export function Sidebar() {
       {/* Stats mini panel (only expanded) */}
       <AnimatePresence>
         {!collapsed && (
+          // stats
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -173,7 +171,7 @@ export function Sidebar() {
           >
             <div className="rounded-lg border border-sidebar-border bg-muted/30 p-3 space-y-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Sistema
+                {t('sidebar.system')}
               </p>
               {stats.map(({ icon: Icon, value, label }) => (
                 <div key={label} className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -204,7 +202,7 @@ export function Sidebar() {
               exit={{ opacity: 0 }}
               className="flex flex-col min-w-0"
             >
-              <span className="text-xs font-medium text-sidebar-foreground truncate">ZTE SPU Admin</span>
+              <span className="text-xs font-medium text-sidebar-foreground truncate">{t('sidebar.admin')}</span>
               <span className="text-[10px] text-muted-foreground">v1.0.0</span>
             </motion.div>
           )}

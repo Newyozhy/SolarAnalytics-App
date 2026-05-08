@@ -2,6 +2,7 @@
 // Toggle: Días / Semanas / Meses + kWh / Duración
 // Indicador automático de días fragmentados (≥3 sesiones)
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Zap, Clock, AlertCircle } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { ChartPanel } from '@/components/ui/ChartPanel';
@@ -26,14 +27,16 @@ const baseLayout: Record<string, any> = {
   bargap: 0.28,
 };
 
-const METRIC_OPTIONS: { value: GenerationMetric; label: string; icon: React.ElementType }[] = [
-  { value: 'kwh',      label: 'Energía (kWh)', icon: Zap  },
-  { value: 'duration', label: 'Duración (h)',   icon: Clock },
-];
+// METRIC_OPTIONS are built inside the component to use t()
 
 interface PanelA1Props { projectId: string; }
 
 export function PanelA1Generation({ projectId }: PanelA1Props) {
+  const { t } = useTranslation();
+  const METRIC_OPTIONS: { value: GenerationMetric; label: string; icon: React.ElementType }[] = [
+    { value: 'kwh',      label: t('panels.a1.metricEnergy'), icon: Zap  },
+    { value: 'duration', label: t('panels.a1.metricDuration'), icon: Clock },
+  ];
   const [granularity, setGranularity]   = useState<Granularity>('week');
   const [metric, setMetric]             = useState<GenerationMetric>('kwh');
   const [showOutliers, setShowOutliers] = useState(true);
@@ -60,7 +63,7 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
       type: 'bar',
       x: rows.map(r => r.label),
       y: rows.map(r => r.value),
-      name: metric === 'kwh' ? 'kWh generados' : 'Horas activo',
+      name: metric === 'kwh' ? t('panels.a1.kwh') : t('panels.a1.hours'),
       marker: {
         color: rows.map(r => {
           const ratio = maxVal > 0 ? r.value / maxVal : 0;
@@ -90,7 +93,7 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
       textposition: 'top center',
       textfont: { size: 9, color: '#F59E0B' },
       marker: { symbol: 'circle', size: 8, color: '#F59E0B', line: { color: '#F59E0B80', width: 1 } },
-      name: 'Días con interrupciones',
+      name: t('panels.a1.fragDays'),
       hovertemplate: '<b>%{x}</b><br>%{customdata} días fragmentados<extra></extra>',
       customdata: fragmented.map(r => r.fragmented_days),
       showlegend: true,
@@ -121,8 +124,8 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
 
       <ChartPanel
         index={0}
-        title="Producción Solar por Período"
-        subtitle="Energía neta generada o duración de operación agrupada por período"
+        title={t('panels.a1.title')}
+        subtitle={t('panels.a1.subtitle')}
         insight={insight}
         loading={loading}
         height={320}
@@ -148,7 +151,7 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
         ) : !loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
             <AlertCircle className="w-8 h-8 opacity-20" />
-            <p className="text-xs">Sin datos de generación solar disponibles</p>
+            <p className="text-xs">{t('panels.a1.noData')}</p>
           </div>
         ) : null}
       </ChartPanel>

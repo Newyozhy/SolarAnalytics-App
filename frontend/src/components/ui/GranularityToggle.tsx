@@ -1,5 +1,6 @@
 // Reusable GranularityToggle — Días / Semanas / Meses
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { Granularity } from '@/api/analysis';
 
@@ -9,13 +10,15 @@ interface GranularityToggleProps {
   className?: string;
 }
 
-const OPTIONS: { value: Granularity; label: string }[] = [
-  { value: 'day',   label: 'Días'    },
-  { value: 'week',  label: 'Semanas' },
-  { value: 'month', label: 'Meses'   },
-];
+// OPTIONS built inside component to use t()
 
 export function GranularityToggle({ value, onChange, className }: GranularityToggleProps) {
+  const { t } = useTranslation();
+  const OPTIONS: { value: Granularity; label: string }[] = [
+    { value: 'day',   label: t('granularity.day')   },
+    { value: 'week',  label: t('granularity.week')  },
+    { value: 'month', label: t('granularity.month') },
+  ];
   return (
     <div className={cn('inline-flex rounded-lg border border-border bg-muted/40 p-0.5 gap-0.5', className)}>
       {OPTIONS.map(opt => (

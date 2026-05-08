@@ -1,5 +1,6 @@
 // Panel D-2 — Potencia DC del Sistema y Temperatura
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Cpu, Activity, ThermometerSun, AlertCircle } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { ChartPanel } from '@/components/ui/ChartPanel';
@@ -14,6 +15,7 @@ const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 interface PanelD2Props { projectId: string; }
 
 export function PanelD2SystemPower({ projectId }: PanelD2Props) {
+  const { t } = useTranslation();
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [data, setData] = useState<SystemPowerResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,8 +53,8 @@ export function PanelD2SystemPower({ projectId }: PanelD2Props) {
   return (
     <ChartPanel
       index={1}
-      title="Potencia DC y Temperatura del Sistema"
-      subtitle="Evolución de la carga del sitio (kW), generación solar total (kW) y temperatura de los equipos"
+      title={t('panels.d2.title')}
+      subtitle={t('panels.d2.subtitle')}
       insight={insight}
       loading={loading}
       height={320}
@@ -74,13 +76,13 @@ export function PanelD2SystemPower({ projectId }: PanelD2Props) {
               tickangle: granularity === 'day' ? -45 : 0,
             },
             yaxis: {
-              title: { text: 'Potencia (kW)', font: { size: 11 } },
+              title: { text: t('panels.d2.powerKw'), font: { size: 11 } },
               gridcolor: 'rgba(255,255,255,0.06)',
               zeroline: false,
               tickfont: { size: 10 },
             },
             yaxis2: {
-              title: { text: 'Temperatura (°C)', font: { size: 11 } },
+              title: { text: t('panels.d2.tempC'), font: { size: 11 } },
               overlaying: 'y',
               side: 'right',
               showgrid: false,
@@ -101,7 +103,7 @@ export function PanelD2SystemPower({ projectId }: PanelD2Props) {
       ) : !loading ? (
         <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
           <AlertCircle className="w-8 h-8 opacity-20" />
-          <p className="text-xs">No hay datos de potencia o temperatura disponibles para este proyecto</p>
+          <p className="text-xs">{t('panels.d2.noData')}</p>
         </div>
       ) : null}
     </ChartPanel>

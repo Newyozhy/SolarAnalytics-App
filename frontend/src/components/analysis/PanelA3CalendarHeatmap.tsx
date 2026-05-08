@@ -1,6 +1,7 @@
 // Panel A-3 — Heatmap Calendárico (GitHub contributions style)
 // Todos los 7 días visibles, tooltip legible y descriptivo
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { ChartPanel } from '@/components/ui/ChartPanel';
@@ -13,6 +14,7 @@ const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 interface PanelA3Props { projectId: string; }
 
 export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
+  const { t, i18n } = useTranslation();
   const [data, setData]       = useState<CalendarHeatmap | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -40,12 +42,20 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
     while (padded.length % 7 !== 0) padded.push(null);
 
     const weeks = Math.ceil(padded.length / 7);
-    const DAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const DAY_LABELS = i18n.language === 'zh'
+      ? ['日', '一', '二', '三', '四', '五', '六']
+      : i18n.language === 'en'
+      ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      : ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
     // Build per-row scatter traces — one trace per day-of-week
     // This guarantees all 7 rows are always rendered
     const traces: any[] = [];
-    const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const MONTHS = i18n.language === 'zh'
+      ? ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+      : i18n.language === 'en'
+      ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      : ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
     // Build month x-labels
     const wkLabels: string[] = [];
@@ -128,8 +138,8 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
   return (
     <ChartPanel
       index={2}
-      title="Mapa de Calor Calendárico"
-      subtitle="Generación solar diaria — color más verde = mayor producción · ⚠️ días con interrupciones múltiples"
+      title={t('panels.a3.title')}
+      subtitle={t('panels.a3.subtitle')}
       insight={insight}
       loading={loading}
       height={260}
@@ -170,7 +180,7 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
       ) : !loading ? (
         <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
           <AlertCircle className="w-8 h-8 opacity-20" />
-          <p className="text-xs">Sin datos para el heatmap</p>
+          <p className="text-xs">{t('panels.a3.noData')}</p>
         </div>
       ) : null}
     </ChartPanel>

@@ -76,7 +76,7 @@ function FolderCard({
       {isProcessed && (
         <span className="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-medium text-zte-green bg-zte-green/10 border border-zte-green/20 rounded-full px-2 py-0.5">
           <CheckCircle2 className="w-2.5 h-2.5" />
-          Procesado
+          {t('explorer.processed')}
         </span>
       )}
 
@@ -119,22 +119,21 @@ function FolderCard({
               onClick={e => { e.stopPropagation(); onViewCached?.(folder); }}
             >
               <CheckCircle2 className="w-3 h-3" />
-              Ver
+              {t('explorer.open')}
             </Button>
             <Button
               size="sm"
               className="h-7 text-xs gap-1 px-2"
               style={{ background: 'rgba(0,142,211,0.15)', color: '#008ED3', border: '1px solid rgba(0,142,211,0.3)' }}
-              title="Abrir análisis avanzado"
-              onClick={e => { e.stopPropagation(); onOpenAnalysis?.(folder); }}
-            >
+              title={t('analysis.back')}
+              onClick={e => { e.stopPropagation(); onOpenAnalysis?.(folder); }}>
               <BarChart2 className="w-3 h-3" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
               className="h-7 text-xs px-2 text-muted-foreground"
-              title="Volver a procesar"
+              title={t('explorer.process')}
               onClick={e => { e.stopPropagation(); onProcess(folder); }}
             >
               ↺
@@ -264,7 +263,7 @@ export function FolderContent({
                       <span className="text-sm font-medium truncate">{folder.name}</span>
                       {isProcessed && (
                         <span className="flex items-center gap-1 text-[10px] text-zte-green bg-zte-green/10 border border-zte-green/20 rounded-full px-2 py-0.5 flex-shrink-0">
-                          <CheckCircle2 className="w-2.5 h-2.5" /> Procesado
+                          <CheckCircle2 className="w-2.5 h-2.5" /> {t('explorer.processed')}
                         </span>
                       )}
                     </div>
@@ -277,21 +276,20 @@ export function FolderContent({
                             style={{ background: '#00A86B', color: 'white' }}
                             onClick={e => { e.stopPropagation(); onViewCached?.(folder); }}
                           >
-                            <CheckCircle2 className="w-3 h-3" /> Ver
+                            <CheckCircle2 className="w-3 h-3" /> {t('explorer.open')}
                           </Button>
                           <Button
                             size="sm"
                             className="h-7 text-xs gap-1 px-2"
                             style={{ background: 'rgba(0,142,211,0.15)', color: '#008ED3', border: '1px solid rgba(0,142,211,0.3)' }}
-                            title="Análisis avanzado"
-                            onClick={e => { e.stopPropagation(); onOpenAnalysis?.(folder); }}
-                          >
+                            title={t('analysis.tabs.generation')}
+                            onClick={e => { e.stopPropagation(); onOpenAnalysis?.(folder); }}>
                             <BarChart2 className="w-3 h-3" />
                           </Button>
                           <Button
                             variant="ghost" size="sm"
                             className="h-7 text-xs px-2 text-muted-foreground"
-                            title="Reprocesar"
+                            title={t('explorer.process')}
                             onClick={e => { e.stopPropagation(); onProcess(folder); }}
                           >
                             ↺
@@ -304,7 +302,7 @@ export function FolderContent({
                             className="h-7 text-xs gap-1 text-muted-foreground"
                             onClick={e => { e.stopPropagation(); onNavigate(folder); }}
                           >
-                            <FolderOpen className="w-3 h-3" /> Abrir
+                            <FolderOpen className="w-3 h-3" /> {t('explorer.open')}
                           </Button>
                           <Button
                             size="sm"
@@ -312,7 +310,7 @@ export function FolderContent({
                             style={{ background: 'var(--zte-blue)', color: 'white' }}
                             onClick={e => { e.stopPropagation(); onProcess(folder); }}
                           >
-                            <Play className="w-3 h-3" /> Procesar
+                            <Play className="w-3 h-3" /> {t('explorer.process')}
                           </Button>
                         </>
                       )}

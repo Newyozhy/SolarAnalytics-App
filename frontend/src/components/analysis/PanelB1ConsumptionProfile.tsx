@@ -1,6 +1,7 @@
 // Panel B-1 — Perfil Horario: Consumo Base vs Generación Solar vs Consumo Neto
 // ComposedChart con campo editable de consumo base y zona de ahorro destacada
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { ChartPanel } from '@/components/ui/ChartPanel';
@@ -10,17 +11,18 @@ import type { ConsumptionProfile } from '@/api/analysis';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 
-const PRESET_BASES = [
-  { label: 'Personalizado', value: null },
-  { label: '1 kWh/h (pequeño)', value: 1 },
-  { label: '3 kWh/h (mediano)', value: 3 },
-  { label: '5 kWh/h (grande)', value: 5 },
-  { label: '12.34 kWh/h (CocaCola 93)', value: 12.34 },
-];
+// PRESET_BASES built inside component to use t()
 
 interface PanelB1Props { projectId: string; }
 
 export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
+  const { t } = useTranslation();
+  const PRESET_BASES = [
+    { label: `1 kWh/h (${t('panels.b1.presetSmall')})`, value: 1 },
+    { label: `3 kWh/h (${t('panels.b1.presetMedium')})`, value: 3 },
+    { label: `5 kWh/h (${t('panels.b1.presetLarge')})`, value: 5 },
+    { label: '12.34 kWh/h (CocaCola 93)', value: 12.34 },
+  ];
   const [baseConsumption, setBaseConsumption] = useState<number>(5);
   const [inputValue, setInputValue]           = useState<string>('5');
   const [showConfig, setShowConfig]           = useState(false);
@@ -55,14 +57,14 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
         type: 'scatter', mode: 'none',
         x: xs, y: rows.map(r => r.saving),
         fill: 'tozeroy', fillcolor: 'rgba(0,168,107,0.12)',
-        name: 'Ahorro (kWh)', showlegend: true,
+        name: t('panels.b1.saving'), showlegend: true,
         hoverinfo: 'skip',
       },
       // Consumo neto de red
       {
         type: 'scatter', mode: 'lines',
         x: xs, y: rows.map(r => r.net_consumption),
-        name: 'Consumo neto de red',
+        name: t('panels.b1.netConsumption'),
         line: { color: '#EF4444', width: 2, dash: 'dot' },
         fill: 'tozeroy', fillcolor: 'rgba(239,68,68,0.06)',
         hovertemplate: '<b>%{x}</b><br>Consumo neto: <b>%{y:.4f} kWh</b><extra></extra>',
@@ -71,7 +73,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
       {
         type: 'scatter', mode: 'lines',
         x: xs, y: rows.map(r => r.solar_generation),
-        name: 'Generación solar promedio',
+        name: t('panels.b1.solarGeneration'),
         line: { color: '#00A86B', width: 2.5, shape: 'spline' },
         fill: 'tozeroy', fillcolor: 'rgba(0,168,107,0.18)',
         hovertemplate: '<b>%{x}</b><br>Solar: <b>%{y:.4f} kWh</b><extra></extra>',
@@ -80,7 +82,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
       {
         type: 'scatter', mode: 'lines',
         x: xs, y: rows.map(r => r.base_consumption),
-        name: `Consumo base (${baseConsumption} kWh/h)`,
+        name: `${t('panels.b1.baseConsumptionLine')} (${baseConsumption} kWh/h)`,
         line: { color: '#F59E0B', width: 2, dash: 'dash' },
         hovertemplate: '<b>%{x}</b><br>Base: <b>%{y:.2f} kWh/h</b><extra></extra>',
       },
@@ -96,8 +98,8 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
   return (
     <ChartPanel
       index={0}
-      title="Perfil Horario: Consumo vs Generación Solar"
-      subtitle="Comparativo hora a hora entre consumo base del sitio, generación solar y consumo neto de red"
+      title={t('panels.b1.title')}
+      subtitle={t('panels.b1.subtitle')}
       insight={insight}
       loading={loading}
       height={320}
@@ -107,7 +109,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground hover:text-foreground border border-border hover:border-[#008ED3]/40 bg-muted/30 hover:bg-muted/60 transition-all"
         >
           <Settings className="w-3.5 h-3.5" />
-          Consumo base: <span className="text-foreground">{baseConsumption} kWh/h</span>
+          {t('panels.b1.baseConsumptionShort')}: <span className="text-foreground">{baseConsumption} kWh/h</span>
           {showConfig ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
       }
@@ -116,7 +118,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
       {showConfig && (
         <div className="mb-3 p-3 rounded-xl border border-border bg-muted/20 flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-muted-foreground">Consumo base del sitio (kWh/h)</label>
+            <label className="text-[11px] font-semibold text-muted-foreground">{t('panels.b1.baseConsumption')}</label>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -131,12 +133,12 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
                 onClick={handleApply}
                 className="h-8 px-3 rounded-lg bg-[#008ED3] text-white text-xs font-semibold hover:bg-[#006FA8] transition-colors"
               >
-                Aplicar
+                {t('common.apply')}
               </button>
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-muted-foreground">Presets rápidos</label>
+            <label className="text-[11px] font-semibold text-muted-foreground">{t('panels.b1.quickPresets')}</label>
             <div className="flex flex-wrap gap-1.5">
               {PRESET_BASES.filter(p => p.value !== null).map(p => (
                 <button
@@ -149,9 +151,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
               ))}
             </div>
           </div>
-          <p className="w-full text-[10px] text-muted-foreground/70">
-            ℹ️ El consumo base es el kWh/h que el sitio consumiría sin energía solar. Varía por proyecto y ciudad.
-          </p>
+          <p className="w-full text-[10px] text-muted-foreground/70">{t('panels.b1.baseInfo')}</p>
         </div>
       )}
 
@@ -191,7 +191,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
       ) : !loading ? (
         <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
           <AlertCircle className="w-8 h-8 opacity-20" />
-          <p className="text-xs">Configura el consumo base para ver el perfil comparativo</p>
+          <p className="text-xs">{t('panels.b1.noData')}</p>
         </div>
       ) : null}
     </ChartPanel>

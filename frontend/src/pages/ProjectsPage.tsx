@@ -16,18 +16,19 @@ import { cn } from '@/lib/utils';
 
 interface BreadcrumbItem { id: string; name: string; }
 
-// Processing status steps
-const processingSteps = [
-  { key: 'downloading', label: 'Descargando datos de Drive' },
-  { key: 'processing', label: 'Analizando CSVs' },
-  { key: 'saving', label: 'Guardando en caché' },
-  { key: 'completed', label: 'Completado' },
-];
+// processingSteps built inside component to use t()
 
 export function ProjectsPage() {
   const { t } = useTranslation();
   const { setIsAnalysisView } = useUIContext();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  const processingSteps = [
+    { key: 'downloading', label: t('processing.downloading') },
+    { key: 'processing',  label: t('processing.processing')  },
+    { key: 'saving',      label: t('processing.saving')      },
+    { key: 'completed',   label: t('processing.completed')   },
+  ];
 
   // Tree panel collapse state (independent from sidebar)
   const [treePanelCollapsed, setTreePanelCollapsed] = useState(false);
@@ -37,7 +38,7 @@ export function ProjectsPage() {
   const [currentFolders, setCurrentFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([
-    { id: 'root', name: 'Paneles Solares' }
+    { id: 'root', name: t('explorer.rootFolder') }
   ]);
   const [selectedFolder, setSelectedFolder] = useState<Folder | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -249,7 +250,7 @@ export function ProjectsPage() {
             >
               <DialogHeader>
                 <DialogTitle className="text-base font-display">
-                  {jobError ? 'Error de procesamiento' : t('processing.title')}
+                  {jobError ? t('processing.error') : t('processing.title')}
                 </DialogTitle>
               </DialogHeader>
 
@@ -309,7 +310,7 @@ export function ProjectsPage() {
                     className="w-full"
                     onClick={() => { setJobError(null); setProcessingFolder(null); }}
                   >
-                    Cerrar
+                    {t('common.close')}
                   </Button>
                 )}
               </div>

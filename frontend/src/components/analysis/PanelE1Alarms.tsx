@@ -1,5 +1,6 @@
 // Panel E-1 — Alarmas & Eventos (Timeline y KPIs)
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bell, AlertOctagon, AlertTriangle, Info, Search, Filter, Calendar as CalIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChartPanel } from '@/components/ui/ChartPanel';
@@ -49,6 +50,7 @@ function AlarmRow({ alarm }: { alarm: AlarmRecord }) {
 interface PanelE1Props { projectId: string; }
 
 export function PanelE1Alarms({ projectId }: PanelE1Props) {
+  const { t } = useTranslation();
   const [data, setData] = useState<AlarmsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -83,7 +85,7 @@ export function PanelE1Alarms({ projectId }: PanelE1Props) {
   const alarms = data?.data ?? [];
 
   const insight = kpis 
-    ? `Mostrando ${alarms.length} alarmas de ${kpis.total} totales. Críticas: ${kpis.critical} · Mayores: ${kpis.major}. Dispositivos afectados: ${kpis.unique_devices}.`
+    ? `${t('panels.e1.showing')} ${alarms.length} ${t('panels.e1.alarmsOf')} ${kpis.total} ${t('panels.e1.total')}. ${t('panels.e1.critical')}: ${kpis.critical} · ${t('panels.e1.major')}: ${kpis.major}. ${t('panels.e1.affectedDevices')}: ${kpis.unique_devices}.`
     : undefined;
 
   return (
@@ -93,10 +95,10 @@ export function PanelE1Alarms({ projectId }: PanelE1Props) {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
             { l: 'Total', v: kpis.total, c: 'text-foreground' },
-            { l: 'Critical', v: kpis.critical, c: 'text-red-500' },
-            { l: 'Major', v: kpis.major, c: 'text-orange-500' },
-            { l: 'Minor', v: kpis.minor, c: 'text-yellow-500' },
-            { l: 'Warning', v: kpis.warning, c: 'text-blue-500' },
+            { l: t('panels.e1.critical'), v: kpis.critical, c: 'text-red-500' },
+            { l: t('panels.e1.major'),    v: kpis.major,    c: 'text-orange-500' },
+            { l: 'Minor',                 v: kpis.minor,    c: 'text-yellow-500' },
+            { l: 'Warning',               v: kpis.warning,  c: 'text-blue-500' },
           ].map(k => (
             <div key={k.l} className="bg-card/50 border border-border rounded-xl p-3 flex flex-col items-center justify-center">
               <span className="text-[10px] uppercase text-muted-foreground font-semibold">{k.l}</span>
@@ -108,8 +110,8 @@ export function PanelE1Alarms({ projectId }: PanelE1Props) {
 
       <ChartPanel
         index={0}
-        title="Historial de Alarmas y Eventos"
-        subtitle="Registro detallado de alarmas generadas por los equipos del sitio"
+        title={t('panels.e1.title')}
+        subtitle={t('panels.e1.subtitle')}
         insight={insight}
         loading={loading}
         height={400}
@@ -119,7 +121,7 @@ export function PanelE1Alarms({ projectId }: PanelE1Props) {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Filtrar por dispositivo..."
+                placeholder={t('panels.e1.filterDevice')}
                 value={deviceFilter}
                 onChange={e => setDeviceFilter(e.target.value)}
                 className="h-7 pl-7 pr-3 text-[11px] rounded-lg border border-border bg-muted/20 text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-40"
@@ -151,9 +153,9 @@ export function PanelE1Alarms({ projectId }: PanelE1Props) {
               ))}
             </div>
           ) : !loading ? (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
               <Bell className="w-8 h-8 opacity-20" />
-              <p className="text-xs">No se encontraron alarmas para los filtros seleccionados</p>
+              <p className="text-xs">{t('panels.e1.noData')}</p>
             </div>
           ) : null}
         </div>

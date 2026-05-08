@@ -1,6 +1,7 @@
 // Panel A-2 — Perfil Horario de Generación (00:00–23:00)
 // Toggle métrica: minutos / kWh promedio / kWh acumulado
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Clock, Zap, BarChart3, AlertCircle } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { ChartPanel } from '@/components/ui/ChartPanel';
@@ -11,11 +12,7 @@ import type { HourlyMetric, HourlyProfile } from '@/api/analysis';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 
-const METRIC_OPTIONS: { value: HourlyMetric; label: string; icon: React.ElementType }[] = [
-  { value: 'minutes',        label: 'Minutos activos', icon: Clock   },
-  { value: 'kwh',            label: 'kWh promedio',    icon: Zap     },
-  { value: 'kwh_cumulative', label: 'kWh acumulado',   icon: BarChart3 },
-];
+// METRIC_OPTIONS built inside component to use t()
 
 const METRIC_CONFIG: Record<HourlyMetric, { yTitle: string; color: string; gradientStart: string }> = {
   minutes:        { yTitle: 'Min / hora',      color: '#8B5CF6', gradientStart: 'rgba(139,92,246,0.30)' },
@@ -32,6 +29,12 @@ const METRIC_LABELS: Record<HourlyMetric, string> = {
 interface PanelA2Props { projectId: string; }
 
 export function PanelA2HourlyProfile({ projectId }: PanelA2Props) {
+  const { t } = useTranslation();
+  const METRIC_OPTIONS: { value: HourlyMetric; label: string; icon: React.ElementType }[] = [
+    { value: 'minutes',        label: t('panels.a2.metricMinutes'), icon: Clock   },
+    { value: 'kwh',            label: t('panels.a2.metricKwh'),     icon: Zap     },
+    { value: 'kwh_cumulative', label: t('panels.a2.metricKwhCum'),  icon: BarChart3 },
+  ];
   const [metric, setMetric]   = useState<HourlyMetric>('kwh');
   const [data, setData]       = useState<HourlyProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -78,8 +81,8 @@ export function PanelA2HourlyProfile({ projectId }: PanelA2Props) {
   return (
     <ChartPanel
       index={1}
-      title="Perfil Horario de Generación"
-      subtitle="Distribución promedio de generación solar a lo largo del día (00:00 – 23:00)"
+      title={t('panels.a2.title')}
+      subtitle={t('panels.a2.subtitle')}
       insight={insight}
       loading={loading}
       height={300}
@@ -119,7 +122,7 @@ export function PanelA2HourlyProfile({ projectId }: PanelA2Props) {
       ) : !loading ? (
         <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
           <AlertCircle className="w-8 h-8 opacity-20" />
-          <p className="text-xs">Sin datos para generar el perfil horario</p>
+          <p className="text-xs">{t('panels.a2.noData')}</p>
         </div>
       ) : null}
     </ChartPanel>
