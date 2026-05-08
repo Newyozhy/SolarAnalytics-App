@@ -49,7 +49,8 @@ function KpiMini({ icon: Icon, label, value, sub, color, index }: KpiMiniProps) 
 interface PanelB2Props { projectId: string; }
 
 export function PanelB2Savings({ projectId }: PanelB2Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const GRAN_OPTIONS = [
     { value: 'month' as const, label: t('panels.b2.months') },
     { value: 'week'  as const, label: t('panels.b2.weeks') },
@@ -94,17 +95,17 @@ export function PanelB2Savings({ projectId }: PanelB2Props) {
         x: rows.map(r => r.label),
         y: rows.map(r => r.solar_kwh),
         marker: { color: '#00A86B', opacity: 0.85 },
-        hovertemplate: '<b>%{x}</b><br>Solar: <b>%{y:.2f} kWh</b><extra></extra>',
+        hovertemplate: `<b>%{x}</b><br>${t('panels.b2.solarKwh')}: <b>%{y:.2f} kWh</b><extra></extra>`,
       },
       {
         type: 'bar', name: t('panels.b2.netKwh'),
         x: rows.map(r => r.label),
         y: rows.map(r => r.net_kwh),
         marker: { color: '#EF4444', opacity: 0.75 },
-        hovertemplate: '<b>%{x}</b><br>Red: <b>%{y:.2f} kWh</b><extra></extra>',
+        hovertemplate: `<b>%{x}</b><br>${t('panels.b2.netKwh')}: <b>%{y:.2f} kWh</b><extra></extra>`,
       },
     ];
-  }, [data]);
+  }, [data, lang]); // lang triggers recalc on language change
 
   const kpis = data?.kpis;
   const currency = kpis?.currency ?? 'USD';
@@ -159,8 +160,8 @@ export function PanelB2Savings({ projectId }: PanelB2Props) {
       {/* Chart */}
       <ChartPanel
         index={1}
-        title="Solar Generado vs Consumo Neto de Red"
-        subtitle="Comparativo por período — verde = energía producida · rojo = energía comprada de la red"
+        title={t('panels.b2.title')}
+        subtitle={t('panels.b2.subtitle')}
         loading={loading}
         height={280}
       >

@@ -16,7 +16,8 @@ const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 interface PanelB1Props { projectId: string; }
 
 export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const PRESET_BASES = [
     { label: `1 kWh/h (${t('panels.b1.presetSmall')})`, value: 1 },
     { label: `3 kWh/h (${t('panels.b1.presetMedium')})`, value: 3 },
@@ -67,7 +68,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
         name: t('panels.b1.netConsumption'),
         line: { color: '#EF4444', width: 2, dash: 'dot' },
         fill: 'tozeroy', fillcolor: 'rgba(239,68,68,0.06)',
-        hovertemplate: '<b>%{x}</b><br>Consumo neto: <b>%{y:.4f} kWh</b><extra></extra>',
+        hovertemplate: `<b>%{x}</b><br>${t('panels.b1.netConsumption')}: <b>%{y:.4f} kWh</b><extra></extra>`,
       },
       // Generación solar promedio
       {
@@ -76,7 +77,7 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
         name: t('panels.b1.solarGeneration'),
         line: { color: '#00A86B', width: 2.5, shape: 'spline' },
         fill: 'tozeroy', fillcolor: 'rgba(0,168,107,0.18)',
-        hovertemplate: '<b>%{x}</b><br>Solar: <b>%{y:.4f} kWh</b><extra></extra>',
+        hovertemplate: `<b>%{x}</b><br>${t('panels.b1.solarGeneration')}: <b>%{y:.4f} kWh</b><extra></extra>`,
       },
       // Línea consumo base
       {
@@ -84,16 +85,16 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
         x: xs, y: rows.map(r => r.base_consumption),
         name: `${t('panels.b1.baseConsumptionLine')} (${baseConsumption} kWh/h)`,
         line: { color: '#F59E0B', width: 2, dash: 'dash' },
-        hovertemplate: '<b>%{x}</b><br>Base: <b>%{y:.2f} kWh/h</b><extra></extra>',
+        hovertemplate: `<b>%{x}</b><br>${t('panels.b1.baseConsumptionLine')}: <b>%{y:.2f} kWh/h</b><extra></extra>`,
       },
     ];
-  }, [data, baseConsumption]);
+  }, [data, baseConsumption, lang]); // lang triggers recalc on language change
 
   const insight = useMemo(() => {
     if (!data?.summary) return undefined;
     const s = data.summary;
-    return `Con ${baseConsumption} kWh/h de consumo base → ${s.pct_solar_autonomy}% cubierto por solar · ${s.daily_solar_avg_kwh.toFixed(2)} kWh/día promedio solar · ${s.daily_net_consumption_kwh.toFixed(2)} kWh/día promedio de red.`;
-  }, [data, baseConsumption]);
+    return `${baseConsumption} kWh/h → ${s.pct_solar_autonomy}% ${t('panels.b2.solarAutonomy')} · ${s.daily_solar_avg_kwh.toFixed(2)} kWh/d solar · ${s.daily_net_consumption_kwh.toFixed(2)} kWh/d ${t('panels.b1.netConsumption')}.`;
+  }, [data, baseConsumption, lang]);
 
   return (
     <ChartPanel

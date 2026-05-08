@@ -1,5 +1,4 @@
-// Panel A-3 — Heatmap Calendárico (GitHub contributions style)
-// Todos los 7 días visibles, tooltip legible y descriptivo
+// Panel A-3 — Calendar Heatmap (GitHub contributions style)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle } from 'lucide-react';
@@ -15,6 +14,8 @@ interface PanelA3Props { projectId: string; }
 
 export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
   const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+
   const [data, setData]       = useState<CalendarHeatmap | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,12 +29,13 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  const { plotTraces, weekLabels } = useMemo(() => {
-    if (!data?.data.length) return { plotTraces: [], weekLabels: [] };
+  // lang in deps ensures day/month labels + tooltips update on language change
+  const { plotTraces } = useMemo(() => {
+    if (!data?.data.length) return { plotTraces: [] };
     const rows = data.data;
 
     const startDate = new Date(rows[0].date + 'T00:00:00');
-    const startDay  = startDate.getDay(); // 0=Dom
+    const startDay  = startDate.getDay(); // 0=Sun
 
     const padded: (typeof rows[number] | null)[] = [
       ...Array(startDay).fill(null),
@@ -42,20 +44,33 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
     while (padded.length % 7 !== 0) padded.push(null);
 
     const weeks = Math.ceil(padded.length / 7);
-    const DAY_LABELS = i18n.language === 'zh'
+
+    const DAY_LABELS = lang === 'zh'
       ? ['日', '一', '二', '三', '四', '五', '六']
-      : i18n.language === 'en'
+      : lang === 'en'
       ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
       : ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
-    // Build per-row scatter traces — one trace per day-of-week
-    // This guarantees all 7 rows are always rendered
-    const traces: any[] = [];
-    const MONTHS = i18n.language === 'zh'
+    const MONTHS = lang === 'zh'
       ? ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
-      : i18n.language === 'en'
+      : lang === 'en'
       ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
       : ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+    // Fragmented day hover text per language
+    const fragLabel = (sessions: number) => lang === 'zh'
+      ? `⚠️ <i>${sessions} 次会话（多次中断）</i>`
+      : lang === 'en'
+      ? `⚠️ <i>${sessions} sessions (multiple interruptions)</i>`
+      : `⚠️ <i>${sessions} sesiones (interrupciones múltiples)</i>`;
+
+    const contLabel = (sessions: number) => lang === 'zh'
+      ? `✅ ${sessions} 次连续会话`
+      : lang === 'en'
+      ? `✅ ${sessions} continuous session${sessions !== 1 ? 's' : ''}`
+      : `✅ ${sessions} sesión${sessions !== 1 ? 'es' : ''} continua`;
+
+    const generatedLabel = lang === 'zh' ? '发电量' : lang === 'en' ? 'generated' : 'generados';
 
     // Build month x-labels
     const wkLabels: string[] = [];
@@ -70,7 +85,7 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
       }
     }
 
-    // Build z / customdata matrices — shape [7][weeks]
+    // Build z / hover matrices — shape [7][weeks]
     const z: (number | null)[][] = Array.from({ length: 7 }, () => Array(weeks).fill(null));
     const hover: string[][] = Array.from({ length: 7 }, () => Array(weeks).fill(''));
 
@@ -79,16 +94,14 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
       const r = i % 7;
       if (d) {
         z[r][w] = d.kwh;
-        const fragLine = d.is_fragmented
-          ? `<br>⚠️ <i>Día con múltiples interrupciones (${d.sessions} sesiones)</i>`
-          : `<br>✅ ${d.sessions} sesión${d.sessions !== 1 ? 'es' : ''} continua`;
+        const sessionLine = d.is_fragmented ? fragLabel(d.sessions) : contLabel(d.sessions);
         hover[r][w] =
           `<b>${d.date}</b><br>` +
-          `⚡ <b>${d.kwh.toFixed(3)} kWh</b> generados${fragLine}`;
+          `⚡ <b>${d.kwh.toFixed(3)} kWh</b> ${generatedLabel}<br>${sessionLine}`;
       }
     });
 
-    traces.push({
+    const traces = [{
       type: 'heatmap',
       z,
       x: wkLabels,
@@ -123,17 +136,20 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
         font: { size: 12, color: '#f3f4f6', family: 'Inter, system-ui, sans-serif' },
         align: 'left',
       },
-    });
+    }];
 
-    return { plotTraces: traces, weekLabels: wkLabels };
-  }, [data]);
+    return { plotTraces: traces };
+  }, [data, lang]); // lang triggers full recalc including day/month labels
 
   const insight = useMemo(() => {
     if (!data?.data.length) return undefined;
     const fragCount = data.data.filter(d => d.is_fragmented).length;
     const maxDay    = data.data.reduce((a, b) => (b.kwh > a.kwh ? b : a), data.data[0]);
-    return `Mejor día: ${maxDay?.date} con ${maxDay?.kwh} kWh · Promedio: ${data.avg_kwh?.toFixed(2)} kWh/día · ${fragCount > 0 ? `${fragCount} días con múltiples interrupciones detectados` : 'Sin días fragmentados'}.`;
-  }, [data]);
+    const fragPart  = fragCount > 0
+      ? `${fragCount} ${t('panels.a3.fragDays')}`
+      : t('panels.a3.noFragDays');
+    return `${t('panels.a3.bestDay')}: ${maxDay?.date} (${maxDay?.kwh} kWh) · ${t('panels.a3.avg')}: ${data.avg_kwh?.toFixed(2)} kWh/d · ${fragPart}.`;
+  }, [data, lang]);
 
   return (
     <ChartPanel
@@ -150,7 +166,6 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
           data={plotTraces}
           layout={{
             autosize: true,
-            // Extra bottom margin so all 7 rows + colorbar fit without clipping
             margin: { t: 24, r: 90, l: 48, b: 16 },
             paper_bgcolor: 'transparent',
             plot_bgcolor: 'transparent',
@@ -166,9 +181,7 @@ export function PanelA3CalendarHeatmap({ projectId }: PanelA3Props) {
               tickfont: { size: 11, color: '#9ca3af' },
               showgrid: false,
               linecolor: 'transparent',
-              // Reversed so Dom is top row (matches convention)
               autorange: 'reversed',
-              // Critical: don't constrain — let all 7 rows render fully
               scaleanchor: undefined,
               fixedrange: true,
             },

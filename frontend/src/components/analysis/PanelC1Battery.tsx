@@ -42,16 +42,8 @@ interface MetricCfg {
   criticalLine?: { y: number; label: string; color: string }[];
 }
 
-const METRIC_CFG: Record<BatteryMetric, MetricCfg> = {
-  soc:     { yTitle: 'SOC (%)',    yRange: [0, 105],   tickSuffix: '%' },
-  soh:     { yTitle: 'SOH (%)',    yRange: [0, 105],   tickSuffix: '%',
-             criticalLine: [{ y: 80, label: 'Mín. recomendado (80%)', color: '#EF4444' }] },
-  voltage: { yTitle: 'Voltaje (V)', tickSuffix: 'V',
-             criticalLine: [
-               { y: 47, label: 'LLVD1 (47V)', color: '#F59E0B' },
-               { y: 46, label: 'BLVD (46V)',  color: '#EF4444' },
-             ] },
-};
+// METRIC_CFG built with translated labels inside component
+// (static values only; translated strings resolved at render time)
 
 // ─── Alert banner ────────────────────────────────────────────
 
@@ -187,7 +179,8 @@ function NoBatteryData({ metric }: { metric: BatteryMetric }) {
 interface PanelC1Props { projectId: string; }
 
 export function PanelC1Battery({ projectId }: PanelC1Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const [metric, setMetric]           = useState<BatteryMetric>('soc');
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [data, setData]               = useState<BatteryResponse | null>(null);
@@ -244,7 +237,19 @@ export function PanelC1Battery({ projectId }: PanelC1Props) {
     }
 
     return traces;
-  }, [data, metric]);
+  }, [data, metric, lang]); // lang triggers recalc on language change
+
+  // Build METRIC_CFG with translated labels (reactive to lang)
+  const METRIC_CFG: Record<BatteryMetric, MetricCfg> = {
+    soc:     { yTitle: 'SOC (%)',     yRange: [0, 105], tickSuffix: '%' },
+    soh:     { yTitle: 'SOH (%)',     yRange: [0, 105], tickSuffix: '%',
+               criticalLine: [{ y: 80, label: t('panels.c1.minRecommended'), color: '#EF4444' }] },
+    voltage: { yTitle: t('panels.c1.voltageLabel'), tickSuffix: 'V',
+               criticalLine: [
+                 { y: 47, label: 'LLVD1 (47V)', color: '#F59E0B' },
+                 { y: 46, label: 'BLVD (46V)',  color: '#EF4444' },
+               ] },
+  };
 
   const cfg     = METRIC_CFG[metric];
   const summary = data?.summary;
@@ -260,9 +265,11 @@ export function PanelC1Battery({ projectId }: PanelC1Props) {
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     const unit = summary.unit;
-    const alertNote = alerts.length > 0 ? ` · ⚠️ ${alerts.length} batería${alerts.length > 1 ? 's' : ''} bajo el mínimo` : '';
-    return `Último período — Promedio: ${avg.toFixed(1)}${unit} · Mín: ${min.toFixed(1)}${unit} · Máx: ${max.toFixed(1)}${unit} · ${devices.length} unidad${devices.length > 1 ? 'es' : ''} monitoreada${devices.length > 1 ? 's' : ''}${alertNote}.`;
-  }, [data, summary, alerts, metric]);
+    const alertNote = alerts.length > 0
+      ? ` · ⚠️ ${alerts.length} ${alerts.length > 1 ? t('panels.c1.alertBatteriesPlural') : t('panels.c1.alertBatteries')} ${t('panels.c1.belowMin')}`
+      : '';
+    return `${t('panels.c1.lastPeriod')} — ${t('panels.c1.avg')}: ${avg.toFixed(1)}${unit} · ${t('panels.c1.min')}: ${min.toFixed(1)}${unit} · ${t('panels.c1.max')}: ${max.toFixed(1)}${unit} · ${devices.length} ${devices.length > 1 ? t('panels.c1.monitoredPlural') : t('panels.c1.monitored')}${alertNote}.`;
+  }, [data, summary, alerts, metric, lang]);
 
   return (
     <div className="space-y-4">

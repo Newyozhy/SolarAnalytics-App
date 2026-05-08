@@ -16,7 +16,8 @@ const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 interface PanelD1Props { projectId: string; }
 
 export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const [data, setData]       = useState<SpuResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,18 +59,21 @@ export function PanelD1SpuChannels({ projectId }: PanelD1Props) {
       textposition: 'outside',
       textfont: { size: 10, color: '#9ca3af' },
       hovertemplate:
-        '<b>Canal %{y}</b><br>' +
-        '⚡ <b>%{x:.3f} kWh</b> acumulados<br>' +
-        `📊 Promedio sitio: <b>${avgKwh.toFixed(2)} kWh</b><extra></extra>`,
+        `<b>${t('panels.d1.channel')} %{y}</b><br>` +
+        `⚡ <b>%{x:.3f} kWh</b> ${t('panels.d1.accumulated')}<br>` +
+        `📊 ${t('panels.d1.avg')}: <b>${avgKwh.toFixed(2)} kWh</b><extra></extra>`,
     }];
-  }, [data, avgKwh]);
+  }, [data, avgKwh, lang]); // lang triggers recalc on language change
 
   const insight = useMemo(() => {
     if (!data?.data.length) return undefined;
     const n = data.data.length;
     const total = data.data.reduce((s, r) => s + r.total_kwh, 0);
-    return `${n} canales SPU · Total acumulado: ${total.toFixed(2)} kWh · Promedio por canal: ${avgKwh.toFixed(2)} kWh${lowChannelWarnings.length ? ` · ⚠️ ${lowChannelWarnings.length} canal${lowChannelWarnings.length > 1 ? 'es' : ''} bajo rendimiento` : ' · ✅ Todos los canales operando dentro del rango normal'}.`;
-  }, [data, avgKwh, lowChannelWarnings]);
+    const lowPart = lowChannelWarnings.length
+      ? ` · ⚠️ ${lowChannelWarnings.length} ${lowChannelWarnings.length > 1 ? t('panels.d1.lowChannelsPlural') : t('panels.d1.lowChannels')}`
+      : ` · ${t('panels.d1.allNormal')}`;
+    return `${n} SPU · ${t('panels.d1.accumulated')}: ${total.toFixed(2)} kWh · ${t('panels.d1.avg')}: ${avgKwh.toFixed(2)} kWh${lowPart}.`;
+  }, [data, avgKwh, lowChannelWarnings, lang]);
 
   return (
     <div className="space-y-4">

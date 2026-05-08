@@ -1,6 +1,4 @@
-// Panel A-1 — Producción Solar por Período (kWh o Duración)
-// Toggle: Días / Semanas / Meses + kWh / Duración
-// Indicador automático de días fragmentados (≥3 sesiones)
+// Panel A-1 — Solar Production by Period (kWh or Duration)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Zap, Clock, AlertCircle } from 'lucide-react';
@@ -27,16 +25,17 @@ const baseLayout: Record<string, any> = {
   bargap: 0.28,
 };
 
-// METRIC_OPTIONS are built inside the component to use t()
-
 interface PanelA1Props { projectId: string; }
 
 export function PanelA1Generation({ projectId }: PanelA1Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+
   const METRIC_OPTIONS: { value: GenerationMetric; label: string; icon: React.ElementType }[] = [
-    { value: 'kwh',      label: t('panels.a1.metricEnergy'), icon: Zap  },
+    { value: 'kwh',      label: t('panels.a1.metricEnergy'),   icon: Zap  },
     { value: 'duration', label: t('panels.a1.metricDuration'), icon: Clock },
   ];
+
   const [granularity, setGranularity]   = useState<Granularity>('week');
   const [metric, setMetric]             = useState<GenerationMetric>('kwh');
   const [showOutliers, setShowOutliers] = useState(true);
@@ -53,17 +52,22 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
       .finally(() => setLoading(false));
   }, [projectId, granularity, metric, showOutliers]);
 
+  // lang in deps ensures recalc on language change
   const plotData = useMemo(() => {
     if (!data?.data.length) return [];
     const rows = data.data;
     const maxVal = Math.max(...rows.map(r => r.value));
 
-    // Main bars
+    const kwhLabel = metric === 'kwh' ? t('panels.a1.kwh') : t('panels.a1.hours');
+    const hoverTotal = metric === 'kwh'
+      ? `%{y:.2f} kWh<br>${t('panels.a1.metricEnergy')}: %{customdata[0]:.2f} kWh/d`
+      : `%{y:.1f} h<br>${t('panels.a1.metricDuration')}: %{customdata[0]:.1f} h/d`;
+
     const bars: any = {
       type: 'bar',
       x: rows.map(r => r.label),
       y: rows.map(r => r.value),
-      name: metric === 'kwh' ? t('panels.a1.kwh') : t('panels.a1.hours'),
+      name: kwhLabel,
       marker: {
         color: rows.map(r => {
           const ratio = maxVal > 0 ? r.value / maxVal : 0;
@@ -74,15 +78,12 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
       customdata: rows.map(r => [r.avg_per_day, r.n_days, r.fragmented_days, r.max_sessions]),
       hovertemplate: [
         '<b>%{x}</b>',
-        metric === 'kwh'
-          ? '%{y:.2f} kWh totales<br>Promedio: %{customdata[0]:.2f} kWh/día'
-          : '%{y:.1f} h totales<br>Promedio: %{customdata[0]:.1f} h/día',
-        '%{customdata[1]} días · %{customdata[2]} días con interrupciones',
+        hoverTotal,
+        `%{customdata[1]} d · %{customdata[2]} ${t('panels.a1.fragDays')}`,
         '<extra></extra>',
       ].join('<br>'),
     };
 
-    // Fragmented days scatter markers
     const fragmented = rows.filter(r => r.fragmented_days > 0);
     const markers: any = fragmented.length > 0 ? {
       type: 'scatter',
@@ -94,26 +95,26 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
       textfont: { size: 9, color: '#F59E0B' },
       marker: { symbol: 'circle', size: 8, color: '#F59E0B', line: { color: '#F59E0B80', width: 1 } },
       name: t('panels.a1.fragDays'),
-      hovertemplate: '<b>%{x}</b><br>%{customdata} días fragmentados<extra></extra>',
+      hovertemplate: `<b>%{x}</b><br>%{customdata} ${t('panels.a1.fragDays')}<extra></extra>`,
       customdata: fragmented.map(r => r.fragmented_days),
       showlegend: true,
     } : null;
 
     return markers ? [bars, markers] : [bars];
-  }, [data, metric]);
+  }, [data, metric, lang]); // lang triggers recalc on language change
 
   const insight = useMemo(() => {
     if (!data?.summary) return undefined;
     const s = data.summary;
     const fragCount = s.fragmented_days_count;
-    return `${s.total_kwh.toFixed(1)} kWh generados en ${s.total_days} días (${s.avg_kwh_per_day.toFixed(2)} kWh/día promedio)${fragCount > 0 ? ` · ${fragCount} días con interrupciones múltiples (posibles días nublados)` : ''}.`;
-  }, [data]);
+    const fragPart = fragCount > 0 ? ` · ${fragCount} ${t('panels.a1.fragDays')}` : '';
+    return `${s.total_kwh.toFixed(1)} kWh — ${s.total_days} d (${s.avg_kwh_per_day.toFixed(2)} kWh/d avg)${fragPart}.`;
+  }, [data, lang]);
 
-  const yAxisTitle = metric === 'kwh' ? 'kWh' : 'Horas';
+  const yAxisTitle = metric === 'kwh' ? 'kWh' : t('granularity.day');
 
   return (
     <div className="space-y-3">
-      {/* Outlier banner */}
       {data?.outliers && data.outliers.length > 0 && (
         <OutlierBanner
           outliers={data.outliers}

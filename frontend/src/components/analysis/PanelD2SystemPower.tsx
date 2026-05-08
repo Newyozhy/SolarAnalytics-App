@@ -15,7 +15,8 @@ const Plot = (PlotlyChart as any).default ?? PlotlyChart;
 interface PanelD2Props { projectId: string; }
 
 export function PanelD2SystemPower({ projectId }: PanelD2Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [data, setData] = useState<SystemPowerResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,11 +44,11 @@ export function PanelD2SystemPower({ projectId }: PanelD2Props) {
       yaxis: trace.class === 'temp' ? 'y2' : 'y',
       hovertemplate: `<b>%{x}</b><br>${trace.name}: <b>%{y:.2f} ${trace.unit}</b><extra></extra>`,
     }));
-  }, [data]);
+  }, [data, lang]); // lang triggers recalc on language change
 
   const summary = data?.summary;
   const insight = summary
-    ? `Promedios: Carga ${summary.avg_load ?? 0} kW · Generación ${summary.avg_source ?? 0} kW · Temp ${summary.avg_temp ?? 0}°C (Máx ${summary.max_temp ?? 0}°C).`
+    ? `${t('panels.d2.avgLoad')}: ${summary.avg_load ?? 0} kW · ${t('panels.d2.avgSource')}: ${summary.avg_source ?? 0} kW · ${t('panels.d2.avgTemp')}: ${summary.avg_temp ?? 0}°C (Max ${summary.max_temp ?? 0}°C).`
     : undefined;
 
   return (
