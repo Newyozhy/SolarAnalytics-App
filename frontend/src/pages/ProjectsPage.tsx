@@ -11,12 +11,12 @@ import { AnalysisDashboard } from '@/components/analysis/AnalysisDashboard';
 import { projectsApi } from '@/api/projects';
 import type { Folder } from '@/api/projects';
 import { useProjectCache } from '@/hooks/useProjectCache';
+import { useUIContext } from '@/App';
 import { cn } from '@/lib/utils';
 
 interface BreadcrumbItem { id: string; name: string; }
 
-
-// Processing status step
+// Processing status steps
 const processingSteps = [
   { key: 'downloading', label: 'Descargando datos de Drive' },
   { key: 'processing', label: 'Analizando CSVs' },
@@ -26,7 +26,11 @@ const processingSteps = [
 
 export function ProjectsPage() {
   const { t } = useTranslation();
+  const { setIsAnalysisView } = useUIContext();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Tree panel collapse state (independent from sidebar)
+  const [treePanelCollapsed, setTreePanelCollapsed] = useState(false);
 
   // Navigation state — split-pane Windows Explorer
   const [rootFolders, setRootFolders] = useState<Folder[]>([]);
@@ -51,6 +55,15 @@ export function ProjectsPage() {
 
   // Analysis dashboard state
   const [analysisTarget, setAnalysisTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // Sync analysis view with global context (triggers sidebar auto-collapse)
+  useEffect(() => {
+    setIsAnalysisView(!!analysisTarget);
+    if (analysisTarget) {
+      // Also auto-collapse the tree panel when entering analysis
+      setTreePanelCollapsed(true);
+    }
+  }, [analysisTarget, setIsAnalysisView]);
 
   // Load folders at current breadcrumb level
   const loadFolders = useCallback(async (parentId: string) => {
@@ -160,6 +173,9 @@ export function ProjectsPage() {
 
   const currentStepIndex = processingSteps.findIndex(s => s.key === jobStatus);
 
+  // Processed IDs set for FolderTree
+  const processedIds = new Set(Object.keys(cacheMap));
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background">
       <Header
@@ -172,20 +188,23 @@ export function ProjectsPage() {
       {/* Windows Explorer Layout */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT — Tree panel */}
-        <div className="w-60 flex-shrink-0 border-r border-border bg-sidebar/50 overflow-y-auto overflow-x-hidden">
-          <div className="px-3 py-2 border-b border-border">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Navegador
-            </span>
-          </div>
+        {/* LEFT — Tree panel (collapsible) */}
+        <motion.div
+          animate={{ width: treePanelCollapsed ? 44 : 240 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="flex-shrink-0 border-r border-border bg-sidebar/50 overflow-hidden"
+        >
           <FolderTree
             roots={rootFolders}
             selectedId={selectedFolder?.id ?? null}
             onSelect={f => { setSelectedFolder(f); }}
             onExpand={handleTreeExpand}
+            processedIds={processedIds}
+            onOpenAnalysis={handleViewCached}
+            isCollapsed={treePanelCollapsed}
+            onToggleCollapse={() => setTreePanelCollapsed(v => !v)}
           />
-        </div>
+        </motion.div>
 
         {/* RIGHT — Content panel */}
         <div className="flex-1 flex flex-col overflow-hidden">

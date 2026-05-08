@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight, Folder, FolderOpen, CheckCircle2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { Folder as FolderType } from '@/api/projects';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +15,11 @@ interface FolderTreeProps {
   selectedId: string | null;
   onSelect: (folder: FolderType) => void;
   onExpand: (folder: FolderType) => Promise<FolderType[]>;
+  processedIds?: Set<string>;
+  onOpenAnalysis?: (folder: FolderType) => void;
+  // Panel collapse/expand controls
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 function TreeItem({
@@ -23,17 +28,22 @@ function TreeItem({
   selectedId,
   onSelect,
   onExpand,
+  processedIds,
+  onOpenAnalysis,
 }: {
   node: TreeNode;
   depth: number;
   selectedId: string | null;
   onSelect: (f: FolderType) => void;
   onExpand: (f: FolderType) => Promise<FolderType[]>;
+  processedIds?: Set<string>;
+  onOpenAnalysis?: (f: FolderType) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [children, setChildren] = useState<TreeNode[]>([]);
   const isSelected = selectedId === node.id;
+  const isProcessed = processedIds?.has(node.id) ?? false;
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -49,17 +59,32 @@ function TreeItem({
     setIsExpanded(v => !v);
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isProcessed && onOpenAnalysis) {
+      onOpenAnalysis(node);
+    }
+  };
+
   return (
     <div>
       <motion.div
         whileHover={{ backgroundColor: isSelected ? undefined : 'rgba(0,142,211,0.06)' }}
         onClick={() => onSelect(node)}
+        onDoubleClick={handleDoubleClick}
         className={cn(
           'flex items-center gap-1.5 rounded-md cursor-pointer select-none group',
           'transition-colors duration-100 py-1',
-          isSelected ? 'bg-zte-blue/15 text-zte-blue' : 'text-muted-foreground hover:text-foreground'
+          isSelected
+            ? isProcessed
+              ? 'bg-emerald-500/15 text-emerald-500'
+              : 'bg-zte-blue/15 text-zte-blue'
+            : isProcessed
+              ? 'text-emerald-500/80 hover:text-emerald-500'
+              : 'text-muted-foreground hover:text-foreground'
         )}
         style={{ paddingLeft: `${8 + depth * 16}px`, paddingRight: '8px' }}
+        title={isProcessed ? `${node.name} — Doble clic para ver análisis` : node.name}
       >
         {/* Expand button */}
         <button
@@ -86,12 +111,23 @@ function TreeItem({
         </button>
 
         {/* Folder icon */}
-        {isExpanded
-          ? <FolderOpen className={cn('w-4 h-4 flex-shrink-0', isSelected ? 'text-zte-blue' : 'text-amber-400')} />
-          : <Folder className={cn('w-4 h-4 flex-shrink-0', isSelected ? 'text-zte-blue fill-zte-blue/20' : 'text-amber-400 fill-amber-400/20')} />
-        }
+        {isProcessed ? (
+          <CheckCircle2 className={cn(
+            'w-4 h-4 flex-shrink-0',
+            isSelected ? 'text-emerald-500' : 'text-emerald-500/70'
+          )} />
+        ) : isExpanded ? (
+          <FolderOpen className={cn('w-4 h-4 flex-shrink-0', isSelected ? 'text-zte-blue' : 'text-amber-400')} />
+        ) : (
+          <Folder className={cn('w-4 h-4 flex-shrink-0', isSelected ? 'text-zte-blue fill-zte-blue/20' : 'text-amber-400 fill-amber-400/20')} />
+        )}
 
         <span className="text-xs font-medium truncate">{node.name}</span>
+
+        {/* Processed badge (compact) */}
+        {isProcessed && !isSelected && (
+          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+        )}
       </motion.div>
 
       <AnimatePresence>
@@ -110,6 +146,8 @@ function TreeItem({
                 selectedId={selectedId}
                 onSelect={onSelect}
                 onExpand={onExpand}
+                processedIds={processedIds}
+                onOpenAnalysis={onOpenAnalysis}
               />
             ))}
           </motion.div>
@@ -119,19 +157,114 @@ function TreeItem({
   );
 }
 
-export function FolderTree({ roots, selectedId, onSelect, onExpand }: FolderTreeProps) {
+export function FolderTree({
+  roots,
+  selectedId,
+  onSelect,
+  onExpand,
+  processedIds,
+  onOpenAnalysis,
+  isCollapsed,
+  onToggleCollapse,
+}: FolderTreeProps) {
   return (
-    <div className="py-2 space-y-0.5">
-      {roots.map(root => (
-        <TreeItem
-          key={root.id}
-          node={root}
-          depth={0}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onExpand={onExpand}
-        />
-      ))}
+    <div className="flex flex-col h-full">
+      {/* Panel header with toggle */}
+      <div className={cn(
+        'flex items-center border-b border-border flex-shrink-0 transition-all duration-200',
+        isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'
+      )}>
+        <AnimatePresence>
+          {!isCollapsed && (
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              Navegador
+            </motion.span>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          onClick={onToggleCollapse}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className={cn(
+            'flex items-center justify-center rounded-md p-1.5',
+            'text-muted-foreground hover:text-zte-blue hover:bg-zte-blue/10',
+            'transition-colors duration-150'
+          )}
+          title={isCollapsed ? 'Expandir navegador' : 'Colapsar navegador'}
+        >
+          {isCollapsed
+            ? <PanelLeftOpen className="w-3.5 h-3.5" />
+            : <PanelLeftClose className="w-3.5 h-3.5" />
+          }
+        </motion.button>
+      </div>
+
+      {/* Tree content */}
+      <AnimatePresence>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: 'auto' }}
+            exit={{ opacity: 0, width: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-0.5"
+          >
+            {roots.map(root => (
+              <TreeItem
+                key={root.id}
+                node={root}
+                depth={0}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                onExpand={onExpand}
+                processedIds={processedIds}
+                onOpenAnalysis={onOpenAnalysis}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Collapsed: show icon strip */}
+      <AnimatePresence>
+        {isCollapsed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex-1 flex flex-col items-center pt-3 gap-1.5 overflow-y-auto overflow-x-hidden"
+          >
+            {roots.map(root => {
+              const isProc = processedIds?.has(root.id) ?? false;
+              return (
+                <motion.button
+                  key={root.id}
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => onSelect(root)}
+                  onDoubleClick={() => isProc && onOpenAnalysis?.(root)}
+                  title={root.name}
+                  className="relative w-7 h-7 flex items-center justify-center rounded-md hover:bg-zte-blue/10 transition-colors"
+                >
+                  {isProc
+                    ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    : <Folder className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+                  }
+                  {selectedId === root.id && (
+                    <span className="absolute inset-0 rounded-md border border-zte-blue bg-zte-blue/10" />
+                  )}
+                </motion.button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

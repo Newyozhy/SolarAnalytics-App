@@ -17,10 +17,11 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
-# Health check endpoint para UptimeRobot/cron-job.org
-@app.get("/api/health", tags=["healthcheck"])
+# Health check endpoint — supports GET and HEAD for UptimeRobot/cron-job.org compatibility
+@app.api_route("/api/health", methods=["GET", "HEAD"], tags=["healthcheck"])
 def health_check():
     return {"status": "ok", "message": "Server is awake"}
+
 
 # TODO: Include routers here
 from app.api.v1.endpoints import projects

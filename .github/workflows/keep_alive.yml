@@ -1,0 +1,16 @@
+name: Keep Alive Render
+
+on:
+  schedule:
+    # Ejecutar cada 14 minutos (Render duerme a los 15)
+    # Nota: GitHub Actions puede tener retrasos, pero es una buena primera línea de defensa.
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Permite ejecución manual
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend
+        run: |
+          curl -I https://solaranalytics-app.onrender.com/api/health

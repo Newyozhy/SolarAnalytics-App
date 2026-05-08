@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import {
   FolderOpen, BarChart2, Settings, ChevronLeft, ChevronRight,
-  Activity, Zap, Clock
+  Activity, Zap, Clock, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import zteLogo from '@/assets/zte-logo.svg';
 import { cn } from '@/lib/utils';
+import { useUIContext } from '@/App';
 
 // ZTE SPU Logo using real SVG asset
 function ZteLogo({ collapsed }: { collapsed: boolean }) {
@@ -63,7 +64,7 @@ const stats = [
 
 export function Sidebar() {
   const { t } = useTranslation();
-  const [collapsed, setCollapsed] = useState(false);
+  const { sidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed } = useUIContext();
   const [activeKey, setActiveKey] = useState('projects');
 
   return (
@@ -83,22 +84,26 @@ export function Sidebar() {
         <ZteLogo collapsed={collapsed} />
       </div>
 
-      {/* Collapse Toggle */}
-      <button
-        onClick={() => setCollapsed(c => !c)}
+      {/* Collapse Toggle — Professional panel button */}
+      <motion.button
+        onClick={() => setCollapsed(!collapsed)}
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.92 }}
         className={cn(
-          'absolute -right-3 top-[4.5rem] z-10',
-          'w-6 h-6 rounded-full border border-sidebar-border bg-sidebar',
+          'absolute -right-4 top-[4.25rem] z-20',
+          'w-8 h-8 rounded-full',
           'flex items-center justify-center',
+          'bg-sidebar border border-sidebar-border shadow-lg',
           'hover:bg-zte-blue hover:border-zte-blue hover:text-white',
-          'text-muted-foreground transition-all duration-200 shadow-sm'
+          'text-muted-foreground transition-colors duration-200'
         )}
+        title={collapsed ? 'Expandir panel' : 'Colapsar panel'}
       >
         {collapsed
-          ? <ChevronRight className="w-3 h-3" />
-          : <ChevronLeft className="w-3 h-3" />
+          ? <PanelLeftOpen className="w-4 h-4" />
+          : <PanelLeftClose className="w-4 h-4" />
         }
-      </button>
+      </motion.button>
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
