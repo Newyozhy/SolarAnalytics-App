@@ -110,27 +110,41 @@ def _normalize_col(name: str) -> str:
 def _rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     Renombra columnas usando la tabla de aliases.
-    Primero intenta match exacto por clave normalizada,
-    luego intenta match por substring para nombres compuestos.
+    1. Busca '(nombre_ingles)' y lo usa si es conocido.
+    2. Intenta match exacto por clave normalizada.
+    3. Intenta match por substring, evitando duplicar nombres.
     """
     df = df.copy()
     # Limpiar BOM global
     df.columns = [c.lstrip('\ufeff').strip() for c in df.columns]
 
+    import re
     rename = {}
     for col in df.columns:
         norm = _normalize_col(col)
+        
+        # 1. Extraer nombre entre paréntesis (común en ZTE/Huawei)
+        m = re.search(r'\(([^)]+)\)', col)
+        if m:
+            extracted = m.group(1).strip()
+            norm_ext = _normalize_col(extracted)
+            if norm_ext in _COL_ALIASES:
+                rename[col] = _COL_ALIASES[norm_ext]
+                continue
+
+        # 2. Match exacto
         if norm in _COL_ALIASES:
             rename[col] = _COL_ALIASES[norm]
         else:
-            # Match por substring (para nombres largos con info extra)
-            # ORDENAR por longitud descendente para que 'energia_final' gane sobre 'fin'
+            # 3. Match por substring
             matched = None
             for alias_key, canonical in sorted(_COL_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
                 if alias_key in norm:
                     matched = canonical
                     break
-            if matched:
+            
+            # Evitar colisiones (no reasignar el mismo nombre a múltiples columnas)
+            if matched and matched not in rename.values():
                 rename[col] = matched
 
     return df.rename(columns=rename)
