@@ -73,6 +73,19 @@ _COL_ALIASES = {
     'kwh_final':         'final_kwh',
     'generacion_final':  'final_kwh',
     'valor_final':       'final_kwh',
+    # history_data / history_alarm
+    'save_time':         'save_time',
+    'ahorrar_tiempo':    'save_time',
+    'device_name':       'device_name',
+    'nombre_del_dispositivo': 'device_name',
+    'signal_name':       'signal_name',
+    'nombre_senal':      'signal_name',
+    'value':             'value',
+    'valor':             'value',
+    'level':             'level',
+    'nivel':             'level',
+    'unit':              'unit',
+    'unidad':            'unit',
 }
 
 

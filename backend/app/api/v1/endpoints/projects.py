@@ -162,6 +162,10 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 
             elif name_key == "history_data":
                 df = download_csv_to_dataframe(service, file_info['id'])
+                
+                from app.services.analysis_service import _rename_columns
+                df = _rename_columns(df)
+                
                 raw_summary[name_key] = len(df)
                 historicos = clean_history_data(df)
 
@@ -199,6 +203,10 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 
             elif name_key == "history_alarm":
                 df = download_csv_to_dataframe(service, file_info['id'])
+                
+                from app.services.analysis_service import _rename_columns
+                df = _rename_columns(df)
+                
                 raw_summary[name_key] = len(df)
                 raw_data_cache["alarms"] = json.loads(df.to_json(orient="records", date_format="iso"))
                 del df; gc.collect()
