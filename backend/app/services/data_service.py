@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-
 import logging as _logging
 _log = _logging.getLogger(__name__)
 
@@ -8,36 +7,25 @@ _log = _logging.getLogger(__name__)
 def clean_solar_work_rec(df):
     """
     Limpia y procesa el DataFrame de solar_work_rec.csv.
+    Soporta nombres de columnas en Español e Inglés (ZTE/Huawei).
     Calcula la generación neta de energía por sesión y por día.
     """
     if df is None or df.empty:
         return pd.DataFrame()
 
-    df = df.copy()
-
-    # Eliminar BOM y espacios en nombres de columnas
-    df.columns = [c.lstrip('\ufeff').strip() for c in df.columns]
-
-    col_mapping = {}
-    for col in df.columns:
-        lc = col.lower().replace(' ', '_')
-        if 'start_time' in lc or lc == 'starttime':  col_mapping[col] = 'start_time'
-        elif 'end_time' in lc or lc == 'endtime':    col_mapping[col] = 'end_time'
-        elif 'duration' in lc:   col_mapping[col] = 'duration_min'
-        elif 'initial' in lc:    col_mapping[col] = 'initial_kwh'
-        elif 'final' in lc:      col_mapping[col] = 'final_kwh'
-
-    df = df.rename(columns=col_mapping)
+    # Reutilizar la lógica centralizada de rename (English + Español)
+    from app.services.analysis_service import _rename_columns
+    df = _rename_columns(df.copy())
 
     # Guard: columnas mínimas requeridas
     if 'start_time' not in df.columns:
         _log.warning(
-            "clean_solar_work_rec: 'start_time' no encontrado. "
+            "clean_solar_work_rec: 'start_time' no encontrado tras rename. "
             "Columnas disponibles: %s", list(df.columns)
         )
         return pd.DataFrame()
 
-    # Convertir a datetime de forma eficiente
+    # Convertir a datetime
     df['start_time'] = pd.to_datetime(df['start_time'], errors='coerce')
     if 'end_time' in df.columns:
         df['end_time'] = pd.to_datetime(df['end_time'], errors='coerce')

@@ -15,36 +15,126 @@ import logging as _logging
 _log = _logging.getLogger(__name__)
 
 
-def _parse_solar(df: pd.DataFrame) -> pd.DataFrame:
-    """Limpia solar_work_rec.csv y agrega columnas derivadas."""
-    if df is None or df.empty:
-        return pd.DataFrame()
-    df = df.copy()
+# ─────────────────────────────────────────────────────────────
+# TABLA DE ALIASES DE COLUMNAS (English + Español)
+# Clave: substrings normalizados (lower, sin espacios/guiones/acentos)
+# Valor: nombre canónico interno
+# ─────────────────────────────────────────────────────────────
+_COL_ALIASES = {
+    # start_time — inglés y español (ZTE/Huawei)
+    'start_time':        'start_time',
+    'starttime':         'start_time',
+    'hora_inicio':       'start_time',
+    'hora_de_inicio':    'start_time',
+    'tiempo_inicio':     'start_time',
+    'tiempo_de_inicio':  'start_time',
+    'inicio':            'start_time',
+    'fecha_inicio':      'start_time',
+    'fecha_de_inicio':   'start_time',
+    'fecha/hora_inicio': 'start_time',
+    'hora_inicial':      'start_time',
+    # end_time
+    'end_time':          'end_time',
+    'endtime':           'end_time',
+    'hora_fin':          'end_time',
+    'hora_de_fin':       'end_time',
+    'tiempo_fin':        'end_time',
+    'tiempo_de_fin':     'end_time',
+    'fin':               'end_time',
+    'fecha_fin':         'end_time',
+    'fecha_de_fin':      'end_time',
+    'fecha/hora_fin':    'end_time',
+    'hora_final':        'end_time',
+    # duration_min
+    'duration':          'duration_min',
+    'duracion':          'duration_min',
+    'duracion_(min)':    'duration_min',
+    'duracion_min':      'duration_min',
+    'tiempo_(min)':      'duration_min',
+    'tiempo_total_(min)':'duration_min',
+    'tiempo_total':      'duration_min',
+    'minutos':           'duration_min',
+    # initial_kwh
+    'initial':           'initial_kwh',
+    'initial_kwh':       'initial_kwh',
+    'energia_inicial':   'initial_kwh',
+    'energia_inicial_(kwh)': 'initial_kwh',
+    'kwh_inicial':       'initial_kwh',
+    'generacion_inicial':'initial_kwh',
+    'valor_inicial':     'initial_kwh',
+    # final_kwh
+    'final':             'final_kwh',
+    'final_kwh':         'final_kwh',
+    'energia_final':     'final_kwh',
+    'energia_final_(kwh)': 'final_kwh',
+    'kwh_final':         'final_kwh',
+    'generacion_final':  'final_kwh',
+    'valor_final':       'final_kwh',
+}
 
-    # Eliminar BOM y espacios de nombres de columnas (común en archivos exportados)
+
+def _normalize_col(name: str) -> str:
+    """Normaliza un nombre de columna: lower, sin BOM/acentos/espacios/guiones/paréntesis."""
+    import unicodedata
+    # Eliminar BOM y strip
+    s = name.lstrip('\ufeff').strip()
+    # Quitar acentos (NFD → solo ASCII)
+    s = unicodedata.normalize('NFD', s)
+    s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+    # Lower y reemplazar separadores por guión bajo
+    s = s.lower()
+    for ch in (' ', '-', '/', '(', ')', '.', ':'):
+        s = s.replace(ch, '_')
+    # Colapsar múltiples guiones bajos
+    import re as _re
+    s = _re.sub(r'_+', '_', s).strip('_')
+    return s
+
+
+def _rename_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Renombra columnas usando la tabla de aliases.
+    Primero intenta match exacto por clave normalizada,
+    luego intenta match por substring para nombres compuestos.
+    """
+    df = df.copy()
+    # Limpiar BOM global
     df.columns = [c.lstrip('\ufeff').strip() for c in df.columns]
 
-    # Normalizar nombres de columnas (case-insensitive, detecta variantes)
     rename = {}
-    for c in df.columns:
-        lc = c.lower().replace(' ', '_')
-        if 'start_time' in lc or lc == 'starttime': rename[c] = 'start_time'
-        elif 'end_time' in lc or lc == 'endtime':   rename[c] = 'end_time'
-        elif 'duration' in lc:    rename[c] = 'duration_min'
-        elif 'initial' in lc:     rename[c] = 'initial_kwh'
-        elif 'final' in lc:       rename[c] = 'final_kwh'
-    df = df.rename(columns=rename)
+    for col in df.columns:
+        norm = _normalize_col(col)
+        if norm in _COL_ALIASES:
+            rename[col] = _COL_ALIASES[norm]
+        else:
+            # Match por substring (para nombres largos con info extra)
+            matched = None
+            for alias_key, canonical in _COL_ALIASES.items():
+                if alias_key in norm:
+                    matched = canonical
+                    break
+            if matched:
+                rename[col] = matched
 
-    # Guard: si no se encontró la columna start_time, retornar vacío
+    return df.rename(columns=rename)
+
+
+def _parse_solar(df: pd.DataFrame) -> pd.DataFrame:
+    """Limpia solar_work_rec.csv y agrega columnas derivadas (English + Español)."""
+    if df is None or df.empty:
+        return pd.DataFrame()
+    df = _rename_columns(df)
+
+    # Guard: columnas mínimas requeridas
     if 'start_time' not in df.columns:
         _log.warning(
-            "_parse_solar: columna 'start_time' no encontrada. "
+            "_parse_solar: columna 'start_time' no encontrada tras rename. "
             "Columnas disponibles: %s", list(df.columns)
         )
         return pd.DataFrame()
     if 'end_time' not in df.columns:
         _log.warning(
-            "_parse_solar: columna 'end_time' no encontrada. "
+            "_parse_solar: columna 'end_time' no encontrada tras rename. "
             "Columnas disponibles: %s", list(df.columns)
         )
         return pd.DataFrame()
