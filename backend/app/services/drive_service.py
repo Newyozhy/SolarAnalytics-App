@@ -107,23 +107,23 @@ def get_csv_files_in_project(service, project_folder_id):
     return filtered_files
 
 def download_csv_to_dataframe(service, file_id):
-    """Descarga un archivo CSV desde Drive directamente a un DataFrame de Pandas usando PyArrow para optimizar memoria."""
+    """Descarga un archivo CSV desde Drive directamente a un DataFrame de Pandas."""
     request = service.files().get_media(fileId=file_id)
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
     done = False
     while done is False:
         status, done = downloader.next_chunk()
-    
+
     fh.seek(0)
     try:
-        # MITIGACIÓN: Usar engine='pyarrow' para reducir memoria y aumentar velocidad
-        df = pd.read_csv(fh, engine='pyarrow')
+        # Motor 'c' (estándar de pandas): menor peak de memoria que pyarrow
+        df = pd.read_csv(fh, engine='c')
     except Exception:
         fh.seek(0)
-        # Fallback a motor estándar con otro encoding
+        # Fallback con encoding latin-1
         df = pd.read_csv(fh, encoding='iso-8859-1')
-        
+
     return df
 
 def download_project_data(service, project_folder_id):

@@ -4,13 +4,15 @@ Prefijo: /api/v1/analysis/{project_id}/
 """
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List, Literal
-from functools import lru_cache
 import gc
+import logging
 
 from app.services.drive_service import get_drive_service, download_project_data
 from app.services.supabase_service import get_cached_result_json
 from app.services import analysis_service as svc
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -19,12 +21,12 @@ router = APIRouter()
 # HELPER — Carga DataFrames del proyecto (caché → Drive)
 # ─────────────────────────────────────────────────────────────
 
-@lru_cache(maxsize=10)
 def _load_project_dataframes(project_id: str) -> dict:
     """
     Carga los DataFrames del proyecto.
     Primero intenta desde el caché de Supabase (raw_data).
     Si no existe o falla, descarga de Drive.
+    NOTA: Sin @lru_cache para evitar acumulación de RAM en Render (512MB limit).
     """
     try:
         # Intento de lectura desde Supabase Caché
@@ -38,12 +40,14 @@ def _load_project_dataframes(project_id: str) -> dict:
                 dataframes["history_data"] = pd.DataFrame(raw["history"])
             if "alarms" in raw and raw["alarms"]:
                 dataframes["history_alarm"] = pd.DataFrame(raw["alarms"])
-            
+
             # Si se cargó algo útil, retornamos
             if dataframes:
+                logger.info(f"Proyecto {project_id} cargado desde Supabase caché.")
                 return dataframes
 
         # Fallback: Drive
+        logger.info(f"Proyecto {project_id} no está en caché, descargando de Drive...")
         service = get_drive_service()
         dataframes = download_project_data(service, project_id)
         return dataframes

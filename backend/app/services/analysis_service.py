@@ -11,26 +11,49 @@ from datetime import datetime, timedelta
 # HELPERS INTERNOS
 # ─────────────────────────────────────────────────────────────
 
+import logging as _logging
+_log = _logging.getLogger(__name__)
+
+
 def _parse_solar(df: pd.DataFrame) -> pd.DataFrame:
     """Limpia solar_work_rec.csv y agrega columnas derivadas."""
     if df is None or df.empty:
         return pd.DataFrame()
     df = df.copy()
-    # Normalizar nombres de columnas
+
+    # Eliminar BOM y espacios de nombres de columnas (común en archivos exportados)
+    df.columns = [c.lstrip('\ufeff').strip() for c in df.columns]
+
+    # Normalizar nombres de columnas (case-insensitive, detecta variantes)
     rename = {}
     for c in df.columns:
-        lc = c.lower()
-        if 'start_time' in lc: rename[c] = 'start_time'
-        elif 'end_time' in lc: rename[c] = 'end_time'
-        elif 'duration' in lc: rename[c] = 'duration_min'
-        elif 'initial' in lc: rename[c] = 'initial_kwh'
-        elif 'final' in lc: rename[c] = 'final_kwh'
+        lc = c.lower().replace(' ', '_')
+        if 'start_time' in lc or lc == 'starttime': rename[c] = 'start_time'
+        elif 'end_time' in lc or lc == 'endtime':   rename[c] = 'end_time'
+        elif 'duration' in lc:    rename[c] = 'duration_min'
+        elif 'initial' in lc:     rename[c] = 'initial_kwh'
+        elif 'final' in lc:       rename[c] = 'final_kwh'
     df = df.rename(columns=rename)
+
+    # Guard: si no se encontró la columna start_time, retornar vacío
+    if 'start_time' not in df.columns:
+        _log.warning(
+            "_parse_solar: columna 'start_time' no encontrada. "
+            "Columnas disponibles: %s", list(df.columns)
+        )
+        return pd.DataFrame()
+    if 'end_time' not in df.columns:
+        _log.warning(
+            "_parse_solar: columna 'end_time' no encontrada. "
+            "Columnas disponibles: %s", list(df.columns)
+        )
+        return pd.DataFrame()
+
     df['start_time'] = pd.to_datetime(df['start_time'], errors='coerce')
     df['end_time'] = pd.to_datetime(df['end_time'], errors='coerce')
     df = df.dropna(subset=['start_time', 'end_time'])
     for c in ['duration_min', 'initial_kwh', 'final_kwh']:
-        df[c] = pd.to_numeric(df.get(c, 0), errors='coerce').fillna(0)
+        df[c] = pd.to_numeric(df.get(c, pd.Series(dtype=float)), errors='coerce').fillna(0)
     df['kwh'] = (df['final_kwh'] - df['initial_kwh']).clip(lower=0)
     df['date'] = df['start_time'].dt.date
     df['duration_h'] = df['duration_min'] / 60

@@ -160,28 +160,36 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 df = download_csv_to_dataframe(service, file_info['id'])
                 raw_summary[name_key] = len(df)
                 historicos = clean_history_data(df)
-                
+
                 if "battery_soc" in historicos:
                     battery_soc = json.loads(historicos["battery_soc"].to_json(orient="records", date_format="iso"))
-                
+
                 # Filter history_data to keep only essential signals for analysis
-                # to prevent 40MB JSON payloads in Supabase cache
                 if df is not None and not df.empty and 'signal_name' in df.columns:
                     mask = df['signal_name'].str.contains(
-                        'SOC|SOH|Voltage|Load Power|Source Power|Total Generation|Temperature', 
+                        'SOC|SOH|Voltage|Load Power|Source Power|Total Generation|Temperature',
                         case=False, na=False
                     )
                     df_filtered = df[mask].copy()
                 else:
                     df_filtered = df.copy()
-                
-                # Downsample to 1 hour to reduce payload from 13MB to 150KB
+
+                # Downsample a 4h para proyectos grandes (reduce payload de ~13MB a ~40KB)
                 df_filtered = df_filtered.reset_index(drop=True)
                 df_filtered['save_time'] = pd.to_datetime(df_filtered['save_time'], errors='coerce')
                 df_filtered['value'] = pd.to_numeric(df_filtered['value'], errors='coerce')
                 df_filtered = df_filtered.dropna(subset=['save_time', 'value']).reset_index(drop=True)
-                df_filtered = df_filtered.groupby(['device_name', 'signal_name']).resample('1h', on='save_time')['value'].mean().reset_index()
-                
+                df_filtered = df_filtered.groupby(['device_name', 'signal_name']).resample('4h', on='save_time')['value'].mean().reset_index()
+
+                # Cap de 1000 filas por señal para evitar payload excesivo en Supabase
+                MAX_ROWS_PER_SIGNAL = 1000
+                df_filtered = (
+                    df_filtered
+                    .groupby(['device_name', 'signal_name'], group_keys=False)
+                    .apply(lambda g: g.tail(MAX_ROWS_PER_SIGNAL))
+                    .reset_index(drop=True)
+                )
+
                 raw_data_cache["history"] = json.loads(df_filtered.to_json(orient="records", date_format="iso"))
                 del df; del df_filtered; del historicos; gc.collect()
                 
@@ -212,18 +220,26 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
 
         # 4. Guardar en Supabase (caché persistente)
         JOBS_STORE[job_id]["status"] = "saving"
-        save_project_result(folder_id, folder_name, result, metadata)
+        saved = save_project_result(folder_id, folder_name, result, metadata)
+        if not saved:
+            # Error de guardado visible en el job (no interrumpe el resultado)
+            JOBS_STORE[job_id]["save_warning"] = (
+                "El resultado NO se guardó en el caché Supabase. "
+                "Revisa SUPABASE_SERVICE_KEY y los logs del servidor."
+            )
 
         # 5. Publicar resultado
         JOBS_STORE[job_id]["result"] = result
         JOBS_STORE[job_id]["status"] = "completed"
         JOBS_STORE[job_id]["from_cache"] = False
-        
+
         gc.collect()
 
     except Exception as e:
+        import traceback
         JOBS_STORE[job_id]["status"] = "failed"
         JOBS_STORE[job_id]["error"] = str(e)
+        JOBS_STORE[job_id]["traceback"] = traceback.format_exc()
 
 
 @router.post("/process", response_model=JobResponse, status_code=202)

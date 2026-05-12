@@ -1,6 +1,10 @@
 import pandas as pd
 import numpy as np
 
+import logging as _logging
+_log = _logging.getLogger(__name__)
+
+
 def clean_solar_work_rec(df):
     """
     Limpia y procesa el DataFrame de solar_work_rec.csv.
@@ -8,40 +12,49 @@ def clean_solar_work_rec(df):
     """
     if df is None or df.empty:
         return pd.DataFrame()
-        
+
     df = df.copy()
-    
+
+    # Eliminar BOM y espacios en nombres de columnas
+    df.columns = [c.lstrip('\ufeff').strip() for c in df.columns]
+
     col_mapping = {}
     for col in df.columns:
-        if 'start_time' in col.lower():
-            col_mapping[col] = 'start_time'
-        elif 'end_time' in col.lower():
-            col_mapping[col] = 'end_time'
-        elif 'duration' in col.lower():
-            col_mapping[col] = 'duration_min'
-        elif 'initial' in col.lower():
-            col_mapping[col] = 'initial_kwh'
-        elif 'final' in col.lower():
-            col_mapping[col] = 'final_kwh'
-            
+        lc = col.lower().replace(' ', '_')
+        if 'start_time' in lc or lc == 'starttime':  col_mapping[col] = 'start_time'
+        elif 'end_time' in lc or lc == 'endtime':    col_mapping[col] = 'end_time'
+        elif 'duration' in lc:   col_mapping[col] = 'duration_min'
+        elif 'initial' in lc:    col_mapping[col] = 'initial_kwh'
+        elif 'final' in lc:      col_mapping[col] = 'final_kwh'
+
     df = df.rename(columns=col_mapping)
-    
+
+    # Guard: columnas mínimas requeridas
+    if 'start_time' not in df.columns:
+        _log.warning(
+            "clean_solar_work_rec: 'start_time' no encontrado. "
+            "Columnas disponibles: %s", list(df.columns)
+        )
+        return pd.DataFrame()
+
     # Convertir a datetime de forma eficiente
     df['start_time'] = pd.to_datetime(df['start_time'], errors='coerce')
-    df['end_time'] = pd.to_datetime(df['end_time'], errors='coerce')
-    
+    if 'end_time' in df.columns:
+        df['end_time'] = pd.to_datetime(df['end_time'], errors='coerce')
+
     for col in ['duration_min', 'initial_kwh', 'final_kwh']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-    
+
     if 'initial_kwh' in df.columns and 'final_kwh' in df.columns:
         df['net_generation_kwh'] = df['final_kwh'] - df['initial_kwh']
-        df['net_generation_kwh'] = df['net_generation_kwh'].clip(lower=0) # Más rápido que apply
+        df['net_generation_kwh'] = df['net_generation_kwh'].clip(lower=0)
     else:
         df['net_generation_kwh'] = 0
-        
+
+    df = df.dropna(subset=['start_time'])
     df['date'] = df['start_time'].dt.date
-    
+
     return df
 
 def get_daily_generation(df_clean):
