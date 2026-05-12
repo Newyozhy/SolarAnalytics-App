@@ -41,6 +41,9 @@ _COL_ALIASES = {
     'tiempo_fin':        'end_time',
     'tiempo_de_fin':     'end_time',
     'fin':               'end_time',
+    'finalizacion':      'end_time',
+    'hora_finalizacion': 'end_time',
+    'hora_de_finalizacion': 'end_time',
     'fecha_fin':         'end_time',
     'fecha_de_fin':      'end_time',
     'fecha/hora_fin':    'end_time',
@@ -108,8 +111,9 @@ def _rename_columns(df: pd.DataFrame) -> pd.DataFrame:
             rename[col] = _COL_ALIASES[norm]
         else:
             # Match por substring (para nombres largos con info extra)
+            # ORDENAR por longitud descendente para que 'energia_final' gane sobre 'fin'
             matched = None
-            for alias_key, canonical in _COL_ALIASES.items():
+            for alias_key, canonical in sorted(_COL_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
                 if alias_key in norm:
                     matched = canonical
                     break

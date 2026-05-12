@@ -11,11 +11,28 @@ from app.services.drive_service import get_drive_service, download_project_data
 from app.services.supabase_service import get_cached_result_json
 from app.services import analysis_service as svc
 import pandas as pd
+import threading
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# ─────────────────────────────────────────────────────────────
+# SINGLE-SLOT IN-PROCESS CACHE
+# ─────────────────────────────────────────────────────────────
+# Mantiene en RAM exactamente UN proyecto a la vez para cargas instantáneas.
+# Si llega un proyecto distinto, limpia este slot para evitar OOM (límite 512MB).
+_ACTIVE_PROJECT = {"id": None, "data": None}
+_CACHE_LOCK = threading.Lock()
+
+def invalidate_project_cache(project_id: str):
+    """Limpia el slot activo si coincide con el proyecto (útil para refrescar datos)."""
+    with _CACHE_LOCK:
+        if _ACTIVE_PROJECT["id"] == project_id:
+            logger.info(f"Invalidando Single-Slot Cache para el proyecto {project_id}")
+            _ACTIVE_PROJECT["id"] = None
+            _ACTIVE_PROJECT["data"] = None
+            gc.collect()
 
 # ─────────────────────────────────────────────────────────────
 # HELPER — Carga DataFrames del proyecto (caché → Drive)
@@ -24,11 +41,23 @@ router = APIRouter()
 def _load_project_dataframes(project_id: str) -> dict:
     """
     Carga los DataFrames del proyecto.
-    Primero intenta desde el caché de Supabase (raw_data).
-    Si no existe o falla, descarga de Drive.
-    NOTA: Sin @lru_cache para evitar acumulación de RAM en Render (512MB limit).
+    Primero verifica el Single-Slot Cache. Si no está, lo carga desde Supabase,
+    y si no existe, desde Drive.
     """
+    with _CACHE_LOCK:
+        if _ACTIVE_PROJECT["id"] == project_id and _ACTIVE_PROJECT["data"] is not None:
+            logger.info(f"Proyecto {project_id} servido instantáneamente desde Single-Slot Cache.")
+            return _ACTIVE_PROJECT["data"]
+
+        # Es un proyecto distinto, limpiar slot anterior para liberar RAM
+        if _ACTIVE_PROJECT["id"] is not None:
+            logger.info(f"Descartando proyecto {_ACTIVE_PROJECT['id']} de la memoria para cargar {project_id}.")
+            _ACTIVE_PROJECT["data"] = None
+            _ACTIVE_PROJECT["id"] = None
+            gc.collect()
+
     try:
+        dataframes = None
         # Intento de lectura desde Supabase Caché
         cached = get_cached_result_json(project_id)
         if cached and "raw_data" in cached:
@@ -41,15 +70,17 @@ def _load_project_dataframes(project_id: str) -> dict:
             if "alarms" in raw and raw["alarms"]:
                 dataframes["history_alarm"] = pd.DataFrame(raw["alarms"])
 
-            # Si se cargó algo útil, retornamos
-            if dataframes:
-                logger.info(f"Proyecto {project_id} cargado desde Supabase caché.")
-                return dataframes
+        # Fallback: Drive si no hubo caché
+        if not dataframes:
+            logger.info(f"Proyecto {project_id} no está en caché, descargando de Drive...")
+            service = get_drive_service()
+            dataframes = download_project_data(service, project_id)
 
-        # Fallback: Drive
-        logger.info(f"Proyecto {project_id} no está en caché, descargando de Drive...")
-        service = get_drive_service()
-        dataframes = download_project_data(service, project_id)
+        # Guardar en el Single-Slot
+        with _CACHE_LOCK:
+            _ACTIVE_PROJECT["id"] = project_id
+            _ACTIVE_PROJECT["data"] = dataframes
+            
         return dataframes
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error cargando datos del proyecto: {str(e)}")

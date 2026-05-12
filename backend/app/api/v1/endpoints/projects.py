@@ -119,6 +119,10 @@ def get_cached_result(folder_id: str):
 def _process_project_task(job_id: str, folder_id: str, folder_name: str):
     """Tarea pesada que corre en un hilo separado con bajo uso de memoria."""
     try:
+        # Invalidar el in-process cache por si el usuario está refrescando este proyecto
+        from app.api.v1.endpoints.analysis import invalidate_project_cache
+        invalidate_project_cache(folder_id)
+
         # 1. Verificar caché primero (por si ya fue procesado mientras esperaba)
         cached = get_cached_result_json(folder_id)
         if cached:
