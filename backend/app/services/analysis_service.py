@@ -163,8 +163,99 @@ def _rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.rename(columns=rename)
 
 
+
+# ─────────────────────────────────────────────────────────────
+# DETECCIÓN Y CORRECCIÓN AUTOMÁTICA DE ZONA HORARIA
+# ─────────────────────────────────────────────────────────────
+# Equipos Huawei/ZTE configurados en China (UTC+8) registran
+# timestamps en CST aunque el sitio esté en Colombia (UTC-5).
+# El desfase es de 13 horas (8 - (-5) = 13).
+#
+# Heurística de detección (solar_work_rec):
+#   Si >60% de las sesiones con energía significativa (>0.5 kWh)
+#   comienzan entre las 18:00 y las 23:59 → el archivo está en UTC+8.
+#
+# Heurística de detección (history_data):
+#   Si >60% de los timestamps de save_time caen entre 18:00 y 23:59
+#   (calculado sobre la distribución de horas únicas del día) → UTC+8.
+# ─────────────────────────────────────────────────────────────
+
+_UTC8_OFFSET_H = -13   # UTC+8 → UTC-5 = -13 horas
+
+def _detect_utc8_solar(df_solar: pd.DataFrame) -> bool:
+    """
+    Detecta si solar_work_rec está en UTC+8 (China Standard Time).
+    Usa la distribución de horas de inicio de sesión con energía > 0.5 kWh.
+    Retorna True si se detecta UTC+8.
+    """
+    try:
+        if df_solar is None or df_solar.empty:
+            return False
+        st = pd.to_datetime(df_solar['start_time'], errors='coerce').dropna()
+        kwh_col = None
+        for c in ['kwh', 'final_kwh']:
+            if c in df_solar.columns:
+                kwh_col = c
+                break
+        if kwh_col:
+            mask = pd.to_numeric(df_solar.get(kwh_col, pd.Series(dtype=float)), errors='coerce').fillna(0) > 0.5
+            st = st[mask.values[:len(st)]]
+        if len(st) < 5:
+            return False
+        pct_night = ((st.dt.hour >= 18) | (st.dt.hour <= 1)).mean()
+        detected = bool(pct_night > 0.60)
+        if detected:
+            _log.info(
+                "_detect_utc8_solar: UTC+8 detectado (%.0f%% sesiones en 18-23h / 0-1h). "
+                "Aplicando corrección de %d horas.", pct_night * 100, _UTC8_OFFSET_H
+            )
+        return detected
+    except Exception as e:
+        _log.warning("_detect_utc8_solar: error durante detección: %s", e)
+        return False
+
+
+def _detect_utc8_history(df_history: pd.DataFrame) -> bool:
+    """
+    Detecta si history_data está en UTC+8.
+    Usa la distribución de horas de save_time.
+    Retorna True si se detecta UTC+8.
+    """
+    try:
+        if df_history is None or df_history.empty or 'save_time' not in df_history.columns:
+            return False
+        st = pd.to_datetime(df_history['save_time'], errors='coerce').dropna()
+        if len(st) < 10:
+            return False
+        hour_counts = st.dt.hour.value_counts()
+        # Si hay actividad significativa en horas 19-23 pero no en 6-17 → UTC+8
+        night_activity = hour_counts[hour_counts.index >= 19].sum()
+        day_activity = hour_counts[(hour_counts.index >= 6) & (hour_counts.index <= 17)].sum()
+        total = len(st)
+        pct_night = night_activity / total if total > 0 else 0
+        pct_day = day_activity / total if total > 0 else 0
+        # También verificar si la mediana de horas está en rango nocturno (19-22)
+        median_hour = st.dt.hour.median()
+        detected = bool(pct_night > 0.40 and median_hour >= 18)
+        if detected:
+            _log.info(
+                "_detect_utc8_history: UTC+8 detectado (%.0f%% en 19-23h, mediana=%.0fh). "
+                "Aplicando corrección de %d horas.", pct_night * 100, median_hour, _UTC8_OFFSET_H
+            )
+        return detected
+    except Exception as e:
+        _log.warning("_detect_utc8_history: error durante detección: %s", e)
+        return False
+
+
+def _apply_tz_correction(series: pd.Series, offset_hours: int) -> pd.Series:
+    """Aplica un desplazamiento de horas a una serie de timestamps."""
+    return series + pd.Timedelta(hours=offset_hours)
+
+
 def _parse_solar(df: pd.DataFrame) -> pd.DataFrame:
-    """Limpia solar_work_rec.csv y agrega columnas derivadas (English + Español)."""
+    """Limpia solar_work_rec.csv y agrega columnas derivadas (English + Español).
+    Detecta y corrige automáticamente timestamps en UTC+8 (China) a UTC-5 (Colombia)."""
     if df is None or df.empty:
         return pd.DataFrame()
     df = _rename_columns(df)
@@ -189,6 +280,15 @@ def _parse_solar(df: pd.DataFrame) -> pd.DataFrame:
     for c in ['duration_min', 'initial_kwh', 'final_kwh']:
         df[c] = pd.to_numeric(df.get(c, pd.Series(dtype=float)), errors='coerce').fillna(0)
     df['kwh'] = (df['final_kwh'] - df['initial_kwh']).clip(lower=0)
+
+    # ── Corrección de zona horaria UTC+8 → UTC-5 ──────────────
+    if _detect_utc8_solar(df):
+        df['start_time'] = _apply_tz_correction(df['start_time'], _UTC8_OFFSET_H)
+        df['end_time']   = _apply_tz_correction(df['end_time'],   _UTC8_OFFSET_H)
+        df['_tz_corrected'] = True
+    else:
+        df['_tz_corrected'] = False
+
     df['date'] = df['start_time'].dt.date
     df['duration_h'] = df['duration_min'] / 60
     return df
@@ -594,6 +694,10 @@ def get_battery_status(
     df['value'] = pd.to_numeric(df['value'], errors='coerce')
     df = df.dropna(subset=['save_time', 'value'])
 
+    # ── Corrección automática UTC+8 → UTC-5 ──────────────────
+    if _detect_utc8_history(df):
+        df['save_time'] = _apply_tz_correction(df['save_time'], _UTC8_OFFSET_H)
+
     signal_map = {
         'soc': 'Battery Present SOC',
         'soh': 'Battery SOH',
@@ -685,6 +789,10 @@ def get_spu_channel_energy(df_history: pd.DataFrame) -> dict:
     df['save_time'] = pd.to_datetime(df['save_time'], errors='coerce')
     df = df.dropna(subset=['value', 'save_time'])
 
+    # ── Corrección automática UTC+8 → UTC-5 ──────────────────
+    if _detect_utc8_history(df):
+        df['save_time'] = _apply_tz_correction(df['save_time'], _UTC8_OFFSET_H)
+
     # Buscar señales SPU Power Total Generation
     mask = (
         df['device_name'].str.contains('SPCU', na=False) &
@@ -739,10 +847,21 @@ def get_alarms(
         return {"data": [], "kpis": {}, "by_device": [], "by_level": []}
 
     df = df_alarms.copy()
-    df['start_time'] = pd.to_datetime(df['start_time'], errors='coerce')
-    df['end_time'] = pd.to_datetime(df['end_time'], errors='coerce')
-    df['level'] = pd.to_numeric(df['level'], errors='coerce')
+
+    # Aplicar rename para normalizar columnas
+    df = _rename_columns(df)
+
+    df['start_time'] = pd.to_datetime(df.get('start_time', pd.Series(dtype='object')), errors='coerce')
+    df['end_time']   = pd.to_datetime(df.get('end_time',   pd.Series(dtype='object')), errors='coerce')
+    df['level']      = pd.to_numeric(df.get('level',       pd.Series(dtype='object')), errors='coerce')
     df = df.dropna(subset=['start_time', 'level'])
+
+    # ── Corrección automática UTC+8 → UTC-5 ──────────────────
+    # Reusar heurística de save_time usando start_time como proxy
+    _df_for_tz = df[['start_time']].rename(columns={'start_time': 'save_time'})
+    if _detect_utc8_history(_df_for_tz):
+        df['start_time'] = _apply_tz_correction(df['start_time'], _UTC8_OFFSET_H)
+        df['end_time']   = _apply_tz_correction(df['end_time'],   _UTC8_OFFSET_H)
 
     level_labels = {1: 'Critical', 2: 'Major', 3: 'Minor', 4: 'Warning'}
     df['level_name'] = df['level'].map(level_labels).fillna('Unknown')
@@ -817,6 +936,10 @@ def get_system_power(
     df['save_time'] = pd.to_datetime(df['save_time'], errors='coerce')
     df['value']     = pd.to_numeric(df['value'], errors='coerce')
     df = df.dropna(subset=['save_time', 'value'])
+
+    # ── Corrección automática UTC+8 → UTC-5 ──────────────────
+    if _detect_utc8_history(df):
+        df['save_time'] = _apply_tz_correction(df['save_time'], _UTC8_OFFSET_H)
 
     if date_from:
         df = df[df['save_time'] >= pd.to_datetime(date_from)]

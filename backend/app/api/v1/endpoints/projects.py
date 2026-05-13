@@ -151,7 +151,18 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 df = download_csv_to_dataframe(service, file_info['id'])
                 raw_summary[name_key] = len(df)
                 df_clean = clean_solar_work_rec(df)
-                
+
+                # ── Corrección automática UTC+8 → UTC-5 (China → Colombia) ──
+                # clean_solar_work_rec no aplica timezone. Lo detectamos aquí
+                # antes de guardar al caché para que todo quede en hora Colombia.
+                from app.services.analysis_service import _detect_utc8_solar, _apply_tz_correction, _UTC8_OFFSET_H
+                if not df_clean.empty and _detect_utc8_solar(df_clean):
+                    df_clean['start_time'] = _apply_tz_correction(df_clean['start_time'], _UTC8_OFFSET_H)
+                    if 'end_time' in df_clean.columns:
+                        df_clean['end_time'] = _apply_tz_correction(df_clean['end_time'], _UTC8_OFFSET_H)
+                    if 'date' in df_clean.columns:
+                        df_clean['date'] = df_clean['start_time'].dt.date
+
                 df_daily = get_daily_generation(df_clean)
                 daily_gen = json.loads(df_daily.to_json(orient="records", date_format="iso"))
                 
@@ -163,7 +174,7 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
             elif name_key == "history_data":
                 df = download_csv_to_dataframe(service, file_info['id'])
                 
-                from app.services.analysis_service import _rename_columns
+                from app.services.analysis_service import _rename_columns, _detect_utc8_history, _apply_tz_correction, _UTC8_OFFSET_H
                 df = _rename_columns(df)
                 
                 raw_summary[name_key] = len(df)
@@ -187,6 +198,13 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 df_filtered['save_time'] = pd.to_datetime(df_filtered['save_time'], errors='coerce')
                 df_filtered['value'] = pd.to_numeric(df_filtered['value'], errors='coerce')
                 df_filtered = df_filtered.dropna(subset=['save_time', 'value']).reset_index(drop=True)
+
+                # ── Corrección automática UTC+8 → UTC-5 (China → Colombia) ──
+                # Se detecta y aplica ANTES del resample para que el caché
+                # ya contenga timestamps en hora local de Colombia.
+                if _detect_utc8_history(df_filtered):
+                    df_filtered['save_time'] = _apply_tz_correction(df_filtered['save_time'], _UTC8_OFFSET_H)
+
                 df_filtered = df_filtered.groupby(['device_name', 'signal_name']).resample('4h', on='save_time')['value'].mean().reset_index()
 
                 # Cap de 1000 filas por señal para evitar payload excesivo en Supabase
