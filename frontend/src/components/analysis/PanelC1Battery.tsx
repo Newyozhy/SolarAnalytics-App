@@ -185,17 +185,36 @@ export function PanelC1Battery({ projectId }: PanelC1Props) {
   const [granularity, setGranularity] = useState<Granularity>('day');
   const [data, setData]               = useState<BatteryResponse | null>(null);
   const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
     setData(null);
+    setError(null);
     analysisApi
       .getBattery(projectId, { metric, granularity })
       .then(setData)
-      .catch(console.error)
+      .catch((err) => {
+        console.error(err);
+        setError(err?.message ?? 'Error cargando datos de baterías');
+      })
       .finally(() => setLoading(false));
   }, [projectId, metric, granularity]);
+
+  // ── METRIC_CFG must be declared BEFORE plotTraces useMemo ──
+  // (using it inside useMemo before declaration causes a ReferenceError)
+  const METRIC_CFG: Record<BatteryMetric, MetricCfg> = useMemo(() => ({
+    soc:     { yTitle: 'SOC (%)',     yRange: [0, 105], tickSuffix: '%' },
+    soh:     { yTitle: 'SOH (%)',     yRange: [0, 105], tickSuffix: '%',
+               criticalLine: [{ y: 80, label: t('panels.c1.minRecommended'), color: '#EF4444' }] },
+    voltage: { yTitle: t('panels.c1.voltageLabel'), tickSuffix: 'V',
+               criticalLine: [
+                 { y: 47, label: 'LLVD1 (47V)', color: '#F59E0B' },
+                 { y: 46, label: 'BLVD (46V)',  color: '#EF4444' },
+               ] },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [lang]); // lang triggers recalc on language change
 
   // ── Plotly traces — one line per device ──
   const plotTraces = useMemo(() => {
@@ -237,19 +256,8 @@ export function PanelC1Battery({ projectId }: PanelC1Props) {
     }
 
     return traces;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, metric, lang]); // lang triggers recalc on language change
-
-  // Build METRIC_CFG with translated labels (reactive to lang)
-  const METRIC_CFG: Record<BatteryMetric, MetricCfg> = {
-    soc:     { yTitle: 'SOC (%)',     yRange: [0, 105], tickSuffix: '%' },
-    soh:     { yTitle: 'SOH (%)',     yRange: [0, 105], tickSuffix: '%',
-               criticalLine: [{ y: 80, label: t('panels.c1.minRecommended'), color: '#EF4444' }] },
-    voltage: { yTitle: t('panels.c1.voltageLabel'), tickSuffix: 'V',
-               criticalLine: [
-                 { y: 47, label: 'LLVD1 (47V)', color: '#F59E0B' },
-                 { y: 46, label: 'BLVD (46V)',  color: '#EF4444' },
-               ] },
-  };
 
   const cfg     = METRIC_CFG[metric];
   const summary = data?.summary;
@@ -310,7 +318,12 @@ export function PanelC1Battery({ projectId }: PanelC1Props) {
           </>
         }
       >
-        {plotTraces.length > 0 ? (
+        {error ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+            <AlertCircle className="w-8 h-8 text-red-400 opacity-60" />
+            <p className="text-xs text-red-400/80 text-center max-w-xs">{error}</p>
+          </div>
+        ) : plotTraces.length > 0 ? (
           <Plot
             data={plotTraces}
             layout={{

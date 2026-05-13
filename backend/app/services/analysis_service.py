@@ -75,11 +75,24 @@ _COL_ALIASES = {
     'valor_final':       'final_kwh',
     # history_data / history_alarm
     'save_time':         'save_time',
+    'savetime':          'save_time',
     'ahorrar_tiempo':    'save_time',
+    'save_date':         'save_time',
+    'savedate':          'save_time',
+    'time':              'save_time',
+    'timestamp':         'save_time',
+    'fecha':             'save_time',
+    'fecha_hora':        'save_time',
     'device_name':       'device_name',
+    'devicename':        'device_name',
+    'device':            'device_name',
     'nombre_del_dispositivo': 'device_name',
+    'nombre_dispositivo':     'device_name',
     'signal_name':       'signal_name',
+    'signalname':        'signal_name',
+    'signal':            'signal_name',
     'nombre_senal':      'signal_name',
+    'nombre_de_senal':   'signal_name',
     'value':             'value',
     'valor':             'value',
     'level':             'level',
@@ -562,7 +575,21 @@ def get_battery_status(
     if df_history is None or df_history.empty:
         return {"data": [], "alerts": [], "summary": {}}
 
-    df = df_history.copy()
+    # Normalizar nombres de columna (inglés/español con cualquier variante de mayúsculas/espacios)
+    df = _rename_columns(df_history.copy())
+
+    unit_map = {'soc': '%', 'soh': '%', 'voltage': 'V'}
+
+    # Verificar columnas mínimas requeridas
+    required = {'save_time', 'device_name', 'signal_name', 'value'}
+    missing = required - set(df.columns)
+    if missing:
+        _log.warning(
+            "get_battery_status: columnas faltantes tras rename: %s. "
+            "Columnas disponibles: %s", missing, list(df.columns)
+        )
+        return {"data": [], "alerts": [], "summary": {"unit": unit_map[metric]}}
+
     df['save_time'] = pd.to_datetime(df['save_time'], errors='coerce')
     df['value'] = pd.to_numeric(df['value'], errors='coerce')
     df = df.dropna(subset=['save_time', 'value'])
@@ -573,7 +600,6 @@ def get_battery_status(
         'voltage': 'Battery Voltage',
     }
     signal_filter = signal_map[metric]
-    unit_map = {'soc': '%', 'soh': '%', 'voltage': 'V'}
 
     df = df[
         df['device_name'].str.contains('Battery_', na=False) &
@@ -636,9 +662,25 @@ def get_battery_status(
 def get_spu_channel_energy(df_history: pd.DataFrame) -> dict:
     """Panel D-1: Energía total acumulada por canal SPU (comparativo horizontal)."""
     if df_history is None or df_history.empty:
-        return {"data": [], "warnings": []}
+        return {"data": [], "warnings": [], "avg_kwh": 0}
 
-    df = df_history.copy()
+    # Normalizar nombres de columna (inglés/español con cualquier variante)
+    df = _rename_columns(df_history.copy())
+
+    # Verificar columnas mínimas requeridas
+    required = {'save_time', 'device_name', 'signal_name', 'value'}
+    missing = required - set(df.columns)
+    if missing:
+        _log.warning(
+            "get_spu_channel_energy: columnas faltantes tras rename: %s. "
+            "Columnas disponibles: %s", missing, list(df.columns)
+        )
+        return {
+            "data": [],
+            "warnings": [{"code": "NO_SPCU_DATA", "message": "Columnas requeridas no encontradas en history_data."}],
+            "avg_kwh": 0,
+        }
+
     df['value'] = pd.to_numeric(df['value'], errors='coerce')
     df['save_time'] = pd.to_datetime(df['save_time'], errors='coerce')
     df = df.dropna(subset=['value', 'save_time'])
@@ -765,7 +807,13 @@ def get_system_power(
     if df_history is None or df_history.empty:
         return {"traces": [], "devices": [], "summary": {}}
 
-    df = df_history.copy()
+    # Normalizar nombres de columna (inglés/español con cualquier variante)
+    df = _rename_columns(df_history.copy())
+
+    if 'save_time' not in df.columns or 'signal_name' not in df.columns:
+        _log.warning("get_system_power: columnas save_time/signal_name no encontradas. Disponibles: %s", list(df.columns))
+        return {"traces": [], "devices": [], "summary": {"granularity": granularity}}
+
     df['save_time'] = pd.to_datetime(df['save_time'], errors='coerce')
     df['value']     = pd.to_numeric(df['value'], errors='coerce')
     df = df.dropna(subset=['save_time', 'value'])
