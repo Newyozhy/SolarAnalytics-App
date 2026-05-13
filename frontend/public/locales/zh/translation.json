@@ -67,7 +67,7 @@
     "comingSoon": "即将推出",
     "availableIn": "可在此处查看",
     "consumptionVsGeneration": "消耗与发电对比",
-    "viewInConsumption": "在"消耗与节省"标签中查看"
+    "viewInConsumption": "在\"消耗与节省\"标签中查看"
   },
   "panels": {
     "a1": {
@@ -130,7 +130,7 @@
       "netConsumptionTotal": "总净消耗",
       "solarKwh": "太阳能发电（kWh）",
       "netKwh": "净电网消耗（kWh）",
-      "noData": "配置参数并按"计算"",
+      "noData": "配置参数并按\"计算\"",
       "months": "月",
       "weeks": "周"
     },
