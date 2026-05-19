@@ -1,12 +1,20 @@
 // Panel A-1 — Solar Production by Period (kWh or Duration)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Zap, Clock, AlertCircle } from 'lucide-react';
+import { Zap, Clock, AlertCircle, BarChart2, Table as TableIcon } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { ChartPanel } from '@/components/ui/ChartPanel';
 import { GranularityToggle } from '@/components/ui/GranularityToggle';
 import { MetricToggle } from '@/components/ui/MetricToggle';
 import { OutlierBanner } from '@/components/ui/OutlierBanner';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
 import { analysisApi } from '@/api/analysis';
 import type { Granularity, GenerationMetric, GenerationResponse } from '@/api/analysis';
 
@@ -36,8 +44,14 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
     { value: 'duration', label: t('panels.a1.metricDuration'), icon: Clock },
   ];
 
+  const VIEW_OPTIONS: { value: 'chart' | 'table'; label: string; icon: React.ElementType }[] = [
+    { value: 'chart', label: t('common.chart'), icon: BarChart2 },
+    { value: 'table', label: t('common.table'), icon: TableIcon },
+  ];
+
   const [granularity, setGranularity]   = useState<Granularity>('week');
   const [metric, setMetric]             = useState<GenerationMetric>('kwh');
+  const [viewMode, setViewMode]         = useState<'chart' | 'table'>('chart');
   const [showOutliers, setShowOutliers] = useState(true);
   const [data, setData]                 = useState<GenerationResponse | null>(null);
   const [loading, setLoading]           = useState(false);
@@ -131,30 +145,80 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
         loading={loading}
         height={320}
         controls={
-          <>
+          <div className="flex items-center gap-2">
+            <MetricToggle options={VIEW_OPTIONS} value={viewMode} onChange={setViewMode} />
+            <div className="w-px h-4 bg-border/60 mx-1" />
             <MetricToggle options={METRIC_OPTIONS} value={metric} onChange={setMetric} />
             <GranularityToggle value={granularity} onChange={setGranularity} />
-          </>
+          </div>
         }
       >
-        {plotData.length > 0 ? (
-          <Plot
-            data={plotData}
-            layout={{
-              ...baseLayout,
-              yaxis: { ...baseLayout.yaxis, title: { text: yAxisTitle, font: { size: 11 } } },
-              legend: { bgcolor: 'transparent', borderwidth: 0, font: { size: 11 }, orientation: 'h', y: -0.15 },
-            }}
-            useResizeHandler
-            style={{ width: '100%', height: '100%' }}
-            config={{ responsive: true, displayModeBar: false }}
-          />
-        ) : !loading ? (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-            <AlertCircle className="w-8 h-8 opacity-20" />
-            <p className="text-xs">{t('panels.a1.noData')}</p>
+        {viewMode === 'chart' ? (
+          plotData.length > 0 ? (
+            <Plot
+              data={plotData}
+              layout={{
+                ...baseLayout,
+                yaxis: { ...baseLayout.yaxis, title: { text: yAxisTitle, font: { size: 11 } } },
+                legend: { bgcolor: 'transparent', borderwidth: 0, font: { size: 11 }, orientation: 'h', y: -0.15 },
+              }}
+              useResizeHandler
+              style={{ width: '100%', height: '100%' }}
+              config={{ responsive: true, displayModeBar: false }}
+            />
+          ) : !loading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+              <AlertCircle className="w-8 h-8 opacity-20" />
+              <p className="text-xs">{t('panels.a1.noData')}</p>
+            </div>
+          ) : null
+        ) : (
+          <div className="h-full overflow-auto pr-2 custom-scrollbar">
+            {data?.data && data.data.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t(`granularity.${granularity}`)}</TableHead>
+                    <TableHead className="text-right">
+                      {metric === 'kwh' ? t('panels.a1.metricEnergy') : t('panels.a1.metricDuration')}
+                    </TableHead>
+                    <TableHead className="text-right">{t('dashboard.dailyAverage')}</TableHead>
+                    <TableHead className="text-right">{t('common.days')}</TableHead>
+                    <TableHead className="text-right">{t('panels.a1.fragDays')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.data.map((row, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium whitespace-nowrap">{row.label}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        {metric === 'kwh' ? row.value.toFixed(2) : row.value.toFixed(1)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                        {metric === 'kwh' ? row.avg_per_day.toFixed(2) : row.avg_per_day.toFixed(1)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{row.n_days}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        {row.fragmented_days > 0 ? (
+                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-500">
+                            {row.fragmented_days}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : !loading ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+                <AlertCircle className="w-8 h-8 opacity-20" />
+                <p className="text-xs">{t('panels.a1.noData')}</p>
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        )}
       </ChartPanel>
     </div>
   );
