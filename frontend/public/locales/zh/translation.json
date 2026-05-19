@@ -219,6 +219,11 @@
     "calculate": "计算",
     "days": "天",
     "hours": "小时",
-    "minutes": "分钟"
+    "minutes": "分钟",
+    "chart": "图表",
+    "table": "表格",
+    "chartView": "图表视图",
+    "tableView": "表格视图",
+    "exportExcel": "导出 Excel"
   }
 }

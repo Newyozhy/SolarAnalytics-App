@@ -219,6 +219,11 @@
     "calculate": "Calculate",
     "days": "days",
     "hours": "hours",
-    "minutes": "minutes"
+    "minutes": "minutes",
+    "chart": "Chart",
+    "table": "Table",
+    "chartView": "Chart View",
+    "tableView": "Table View",
+    "exportExcel": "Export Excel"
   }
 }

@@ -1,7 +1,7 @@
 // Panel A-1 — Solar Production by Period (kWh or Duration)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Zap, Clock, AlertCircle, BarChart2, Table as TableIcon } from 'lucide-react';
+import { Zap, Clock, AlertCircle, BarChart2, Table as TableIcon, FileSpreadsheet } from 'lucide-react';
 import PlotlyChart from 'react-plotly.js';
 import { ChartPanel } from '@/components/ui/ChartPanel';
 import { GranularityToggle } from '@/components/ui/GranularityToggle';
@@ -45,8 +45,8 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
   ];
 
   const VIEW_OPTIONS: { value: 'chart' | 'table'; label: string; icon: React.ElementType }[] = [
-    { value: 'chart', label: t('common.chart'), icon: BarChart2 },
-    { value: 'table', label: t('common.table'), icon: TableIcon },
+    { value: 'chart', label: t('common.chartView'), icon: BarChart2 },
+    { value: 'table', label: t('common.tableView'), icon: TableIcon },
   ];
 
   const [granularity, setGranularity]   = useState<Granularity>('week');
@@ -117,6 +117,36 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
     return markers ? [bars, markers] : [bars];
   }, [data, metric, lang]); // lang triggers recalc on language change
 
+  const handleExportExcel = () => {
+    if (!data?.data) return;
+    
+    const headers = [
+      t(`granularity.${granularity}`),
+      metric === 'kwh' ? t('panels.a1.metricEnergy') : t('panels.a1.metricDuration'),
+      t('dashboard.dailyAverage'),
+      t('common.days'),
+      t('panels.a1.fragDays')
+    ];
+
+    const csvContent = [
+      headers.map(h => `"${h}"`).join(','),
+      ...data.data.map(row => {
+        const val = metric === 'kwh' ? row.value.toFixed(2) : row.value.toFixed(1);
+        const avg = metric === 'kwh' ? row.avg_per_day.toFixed(2) : row.avg_per_day.toFixed(1);
+        return `"${row.label}",${val},${avg},${row.n_days},${row.fragmented_days}`;
+      })
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `solar_production_${granularity}_${metric}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const insight = useMemo(() => {
     if (!data?.summary) return undefined;
     const s = data.summary;
@@ -173,50 +203,61 @@ export function PanelA1Generation({ projectId }: PanelA1Props) {
             </div>
           ) : null
         ) : (
-          <div className="h-full overflow-auto pr-2 custom-scrollbar">
-            {data?.data && data.data.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t(`granularity.${granularity}`)}</TableHead>
-                    <TableHead className="text-right">
-                      {metric === 'kwh' ? t('panels.a1.metricEnergy') : t('panels.a1.metricDuration')}
-                    </TableHead>
-                    <TableHead className="text-right">{t('dashboard.dailyAverage')}</TableHead>
-                    <TableHead className="text-right">{t('common.days')}</TableHead>
-                    <TableHead className="text-right">{t('panels.a1.fragDays')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.data.map((row, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-medium whitespace-nowrap">{row.label}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">
-                        {metric === 'kwh' ? row.value.toFixed(2) : row.value.toFixed(1)}
-                      </TableCell>
-                      <TableCell className="text-right whitespace-nowrap text-muted-foreground">
-                        {metric === 'kwh' ? row.avg_per_day.toFixed(2) : row.avg_per_day.toFixed(1)}
-                      </TableCell>
-                      <TableCell className="text-right whitespace-nowrap">{row.n_days}</TableCell>
-                      <TableCell className="text-right whitespace-nowrap">
-                        {row.fragmented_days > 0 ? (
-                          <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-500">
-                            {row.fragmented_days}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/50">-</span>
-                        )}
-                      </TableCell>
+          <div className="h-full flex flex-col">
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={handleExportExcel}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/60 border border-border rounded-md transition-all duration-150"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                {t('common.exportExcel')}
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto pr-2 custom-scrollbar">
+              {data?.data && data.data.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t(`granularity.${granularity}`)}</TableHead>
+                      <TableHead className="text-right">
+                        {metric === 'kwh' ? t('panels.a1.metricEnergy') : t('panels.a1.metricDuration')}
+                      </TableHead>
+                      <TableHead className="text-right">{t('dashboard.dailyAverage')}</TableHead>
+                      <TableHead className="text-right">{t('common.days')}</TableHead>
+                      <TableHead className="text-right">{t('panels.a1.fragDays')}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : !loading ? (
-              <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-                <AlertCircle className="w-8 h-8 opacity-20" />
-                <p className="text-xs">{t('panels.a1.noData')}</p>
-              </div>
-            ) : null}
+                  </TableHeader>
+                  <TableBody>
+                    {data.data.map((row, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium whitespace-nowrap">{row.label}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {metric === 'kwh' ? row.value.toFixed(2) : row.value.toFixed(1)}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                          {metric === 'kwh' ? row.avg_per_day.toFixed(2) : row.avg_per_day.toFixed(1)}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">{row.n_days}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {row.fragmented_days > 0 ? (
+                            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-500">
+                              {row.fragmented_days}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/50">-</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : !loading ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+                  <AlertCircle className="w-8 h-8 opacity-20" />
+                  <p className="text-xs">{t('panels.a1.noData')}</p>
+                </div>
+              ) : null}
+            </div>
           </div>
         )}
       </ChartPanel>
