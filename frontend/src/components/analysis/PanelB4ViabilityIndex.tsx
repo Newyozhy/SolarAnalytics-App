@@ -107,17 +107,7 @@ export function PanelB4ViabilityIndex({ projectId }: Props) {
       </div>
 
       {/* Sin datos */}
-      {!loading && hasData === false && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-          <Info className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-amber-300">Sin datos DC Load vinculados</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {data?.message ?? 'Vincula datos de DC Load Consumption para ver el índice de viabilidad.'}
-            </p>
-          </div>
-        </div>
-      )}
+      {!loading && hasData === false && null}
 
       {/* Global status card */}
       {summary && statusCfg && (

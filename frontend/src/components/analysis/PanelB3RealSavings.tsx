@@ -8,6 +8,7 @@ import { ChartPanel } from '@/components/ui/ChartPanel';
 import { MetricToggle } from '@/components/ui/MetricToggle';
 import { analysisApi } from '@/api/analysis';
 import type { RealSavingsResponse } from '@/api/analysis';
+import { PanelConsumptionLink } from './PanelConsumptionLink';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Plot = (PlotlyChart as any).default ?? PlotlyChart;
@@ -173,15 +174,9 @@ export function PanelB3RealSavings({ projectId }: Props) {
         </div>
       </div>
 
-      {/* No data message */}
-      {!loading && hasRealData === false && data?.message && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-          <Info className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-amber-300">Sin datos DC Load vinculados</p>
-            <p className="text-xs text-muted-foreground mt-1">{data.message}</p>
-          </div>
-        </div>
+      {/* Link consumption UI */}
+      {!loading && hasRealData === false && (
+        <PanelConsumptionLink projectId={projectId} onLinkSuccess={fetchData} />
       )}
 
       {/* KPI row */}

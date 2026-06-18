@@ -53,6 +53,7 @@ export function ProjectsPage() {
   const [jobResult, setJobResult] = useState<any>(null);
   const [jobError, setJobError] = useState<string | null>(null);
   const [fromCache, setFromCache] = useState(false);
+  const [batchResult, setBatchResult] = useState<any | null>(null);
 
   // Analysis dashboard state
   const [analysisTarget, setAnalysisTarget] = useState<{ id: string; name: string } | null>(null);
@@ -153,7 +154,11 @@ export function ProjectsPage() {
           setFromCache(data.from_cache ?? false);
           setJobId(null);
           if (processingFolder) {
-            setAnalysisTarget({ id: processingFolder.id, name: processingFolder.name });
+            if (data.result && data.result.project_type === 'dc_load_batch') {
+              setBatchResult(data.result);
+            } else {
+              setAnalysisTarget({ id: processingFolder.id, name: processingFolder.name });
+            }
             invalidate(processingFolder.id);
             loadCacheStatus(currentFolders.map(f => f.id));
           }
@@ -313,6 +318,58 @@ export function ProjectsPage() {
                     {t('common.close')}
                   </Button>
                 )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </AnimatePresence>
+
+      {/* Batch Result Modal */}
+      <AnimatePresence>
+        {batchResult && (
+          <Dialog open onOpenChange={() => setBatchResult(null)}>
+            <DialogContent className="sm:max-w-md" showCloseButton={true}>
+              <DialogHeader>
+                <DialogTitle className="text-base font-display flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-zte-green" />
+                  Ingesta de Consumo DC Completada
+                </DialogTitle>
+              </DialogHeader>
+              <div className="py-2 space-y-4">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Se procesó la carpeta <strong>{batchResult.project_name}</strong> de consumo DC con éxito. 
+                  Los datos de consumo se han integrado o registrado de la siguiente manera:
+                </p>
+                <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total de filas procesadas:</span>
+                    <span className="font-semibold">{batchResult.total_records}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ubicaciones asociadas automáticamente:</span>
+                    <span className="font-semibold text-emerald-400">{batchResult.matched_to_existing}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Proyectos provisionales creados:</span>
+                    <span className="font-semibold text-amber-400">{batchResult.created_provisional}</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Sitios importados</p>
+                  <div className="max-h-32 overflow-y-auto border border-border rounded-lg bg-background p-2 text-xs divide-y divide-border">
+                    {batchResult.locations_processed.map((loc: string) => (
+                      <div key={loc} className="py-1.5 truncate text-muted-foreground">
+                        {loc}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  className="w-full bg-[#008ED3] text-white hover:bg-[#006FA8]"
+                  onClick={() => setBatchResult(null)}
+                >
+                  Entendido
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
