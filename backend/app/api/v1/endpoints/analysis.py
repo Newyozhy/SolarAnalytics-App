@@ -197,6 +197,17 @@ def get_consumption_profile(
             base_consumption_kwh_per_hour=base_consumption_kwh_per_hour,
             date_from=date_from, date_to=date_to,
         )
+        cached = get_cached_result_json(project_id)
+        if cached and "summary" in result:
+            dc_records = cached.get("dc_load_consumption", [])
+            if dc_records:
+                df_dc = pd.DataFrame(dc_records)
+                power_col = 'Avg Total Power(kW)'
+                if power_col in df_dc.columns:
+                    avg_val = pd.to_numeric(df_dc[power_col], errors='coerce').dropna().mean()
+                    if not pd.isna(avg_val) and avg_val > 0:
+                        result["summary"]["recommended_base_consumption"] = round(float(avg_val), 4)
+                        result["summary"]["has_real_load"] = True
     finally:
         del dfs; gc.collect()
     return result
@@ -226,6 +237,17 @@ def get_savings(
             granularity=granularity,
             date_from=date_from, date_to=date_to,
         )
+        cached = get_cached_result_json(project_id)
+        if cached and "kpis" in result:
+            dc_records = cached.get("dc_load_consumption", [])
+            if dc_records:
+                df_dc = pd.DataFrame(dc_records)
+                power_col = 'Avg Total Power(kW)'
+                if power_col in df_dc.columns:
+                    avg_val = pd.to_numeric(df_dc[power_col], errors='coerce').dropna().mean()
+                    if not pd.isna(avg_val) and avg_val > 0:
+                        result["kpis"]["recommended_base_consumption"] = round(float(avg_val), 4)
+                        result["kpis"]["has_real_load"] = True
     finally:
         del dfs; gc.collect()
     return result

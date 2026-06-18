@@ -90,6 +90,8 @@ export interface ConsumptionProfile {
     daily_net_consumption_kwh: number;
     pct_solar_autonomy: number;
     base_consumption_source: string;
+    recommended_base_consumption?: number;
+    has_real_load?: boolean;
   };
 }
 
@@ -112,6 +114,8 @@ export interface SavingsKpis {
   pct_autonomy: number;
   tariff_per_kwh: number;
   currency: string;
+  recommended_base_consumption?: number;
+  has_real_load?: boolean;
 }
 
 export interface SavingsResponse {

@@ -62,6 +62,7 @@ export function PanelB2Savings({ projectId }: PanelB2Props) {
   const [tariffInput, setTariffInput]         = useState('0.15');
   const [data, setData]                       = useState<SavingsResponse | null>(null);
   const [loading, setLoading]                 = useState(false);
+  const [hasInitialized, setHasInitialized]   = useState(false);
 
   const fetchData = useCallback(() => {
     if (!projectId) return;
@@ -72,10 +73,18 @@ export function PanelB2Savings({ projectId }: PanelB2Props) {
         tariff_per_kwh: tariff,
         granularity,
       })
-      .then(setData)
+      .then(res => {
+        setData(res);
+        if (!hasInitialized && res.kpis?.recommended_base_consumption) {
+          const rec = res.kpis.recommended_base_consumption;
+          setBaseConsumption(rec);
+          setBaseInput(String(rec));
+          setHasInitialized(true);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [projectId, granularity, baseConsumption, tariff]);
+  }, [projectId, granularity, baseConsumption, tariff, hasInitialized]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

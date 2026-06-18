@@ -29,16 +29,25 @@ export function PanelB1ConsumptionProfile({ projectId }: PanelB1Props) {
   const [showConfig, setShowConfig]           = useState(false);
   const [data, setData]                       = useState<ConsumptionProfile | null>(null);
   const [loading, setLoading]                 = useState(false);
+  const [hasInitialized, setHasInitialized]   = useState(false);
 
   const fetchData = useCallback(() => {
     if (!projectId || baseConsumption <= 0) return;
     setLoading(true);
     analysisApi
       .getConsumptionProfile(projectId, { base_consumption_kwh_per_hour: baseConsumption })
-      .then(setData)
+      .then(res => {
+        setData(res);
+        if (!hasInitialized && res.summary?.recommended_base_consumption) {
+          const rec = res.summary.recommended_base_consumption;
+          setBaseConsumption(rec);
+          setInputValue(String(rec));
+          setHasInitialized(true);
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [projectId, baseConsumption]);
+  }, [projectId, baseConsumption, hasInitialized]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
