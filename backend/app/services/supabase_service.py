@@ -96,7 +96,7 @@ def save_project_result(
 
     try:
         from datetime import datetime, timezone
-        url = f"{settings.SUPABASE_URL}/rest/v1/processed_projects"
+        url = f"{settings.SUPABASE_URL}/rest/v1/processed_projects?on_conflict=folder_id"
         payload = {
             "folder_id": folder_id,
             "folder_name": folder_name,
