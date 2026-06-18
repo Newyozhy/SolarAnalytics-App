@@ -104,3 +104,42 @@ def clean_history_data(df):
             result['daily_load'] = df_load_daily
 
     return result
+
+def clean_dc_load_consumption(df):
+    """
+    Limpia y valida el DataFrame de consumo DC desde Excel.
+    Filtra filas sin fecha válida, convierte columnas numéricas y calcula kWh/día.
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+        
+    df = df.copy()
+    
+    # Asegurar columnas requeridas
+    required = ['Date', 'Location', 'Site', 'Supply Mode']
+    for col in required:
+        if col not in df.columns:
+            _log.warning(f"clean_dc_load_consumption: columna '{col}' no encontrada.")
+            return pd.DataFrame()
+            
+    # Convertir columnas numéricas
+    numeric_cols = [
+        'Max Total Current(A)', 'Min Total Current(A)', 'Avg Total Current(A)',
+        'Max Total Power(kW)', 'Min Total Power(kW)', 'Avg Total Power(kW)'
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+    # Filtrar fechas válidas YYYY-MM-DD
+    df['Date'] = df['Date'].astype(str).str.strip()
+    mask_date = df['Date'].str.match(r'^\d{4}-\d{2}-\d{2}$')
+    df = df[mask_date].copy()
+    
+    # Calcular consumo kWh diario aproximado: Avg Power kW * 24 horas
+    if 'Avg Total Power(kW)' in df.columns:
+        df['consumption_kwh'] = df['Avg Total Power(kW)'] * 24.0
+    else:
+        df['consumption_kwh'] = 0.0
+        
+    return df

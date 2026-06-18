@@ -9,10 +9,18 @@ import pandas as pd
 from datetime import datetime, timezone
 
 from app.schemas.projects import FolderResponse, ProcessProjectRequest, JobResponse
-from app.services.drive_service import get_drive_service, find_folder_id, list_subfolders, download_project_data, get_csv_files_in_project, download_csv_to_dataframe
-from app.services.data_service import clean_solar_work_rec, get_daily_generation, clean_history_data
+from app.services.drive_service import (
+    get_drive_service, find_folder_id, list_subfolders, download_project_data,
+    get_csv_files_in_project, download_csv_to_dataframe,
+    get_excel_files_in_project, download_excel_to_dataframe
+)
+from app.services.data_service import (
+    clean_solar_work_rec, get_daily_generation, clean_history_data,
+    clean_dc_load_consumption
+)
 from app.services.supabase_service import (
-    get_cached_project, save_project_result, list_cached_projects, get_cached_result_json
+    get_cached_project, save_project_result, list_cached_projects,
+    get_cached_result_json, delete_cached_project
 )
 from app.core.config import settings
 
@@ -116,14 +124,200 @@ def get_cached_result(folder_id: str):
 # PROCESAMIENTO EN SEGUNDO PLANO
 # ─────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────
+# HELPERS: normalización de nombres para fuzzy matching
+# ─────────────────────────────────────────────────────────────
+import unicodedata
+import re
+
+def _normalize_name(name: str) -> str:
+    """Normaliza cadena a minúsculas sin acentos, sin sufijos comunes y sin espacios extras."""
+    name = unicodedata.normalize('NFKD', name)
+    name = ''.join(c for c in name if not unicodedata.combining(c))
+    name = name.lower()
+    # Eliminar sufijos comunes irrelevantes
+    for suffix in ['updated', 'project', 'proyecto', 'sitio', 'site']:
+        name = re.sub(rf'\b{suffix}\b', '', name)
+    return re.sub(r'\s+', ' ', name).strip()
+
+def _extract_location_key(location: str) -> str:
+    """Extrae el nombre clave del campo Location del Excel (último segmento tras '/')."""
+    parts = location.split('/')
+    # Último segmento, y si tiene un punto, tomar solo la parte después del punto
+    last = parts[-1].strip() if parts else location
+    if '.' in last:
+        last = last.split('.', 1)[-1].strip()
+    return last
+
+def _fuzzy_match_projects(location: str, cached_projects: list) -> str | None:
+    """
+    Intenta encontrar el folder_id del proyecto en Supabase cuyo nombre
+    normalizado coincide con el location extraído del Excel.
+    Retorna el folder_id si hay coincidencia, None si no.
+    """
+    location_key = _normalize_name(_extract_location_key(location))
+    for proj in cached_projects:
+        proj_name_norm = _normalize_name(proj.get('folder_name', ''))
+        if location_key in proj_name_norm or proj_name_norm in location_key:
+            return proj.get('folder_id')
+    return None
+
+
+# ─────────────────────────────────────────────────────────────
+# TAREA: Ingesta de archivos DC Load Consumption (Excel)
+# ─────────────────────────────────────────────────────────────
+
+def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
+    """
+    Procesa una carpeta de Google Drive que contiene archivos Excel de consumo DC.
+    - Combina todos los Excel de la carpeta.
+    - Intenta asociar automáticamente cada Location con un proyecto solar existente.
+    - Si coincide, enriquece el result_json de ese proyecto con dc_load_consumption.
+    - Si no coincide, crea un proyecto provisional de tipo 'dc_load_only'.
+    """
+    try:
+        JOBS_STORE[job_id]["status"] = "downloading"
+        service = get_drive_service()
+        excel_files = get_excel_files_in_project(service, folder_id)
+
+        if not excel_files:
+            JOBS_STORE[job_id]["status"] = "failed"
+            JOBS_STORE[job_id]["error"] = "No se encontraron archivos 'DC Load Consumption' en la carpeta."
+            return
+
+        JOBS_STORE[job_id]["status"] = "processing"
+
+        # Descargar y combinar todos los Excel en un solo DataFrame
+        frames = []
+        for file_info in excel_files:
+            df_raw = download_excel_to_dataframe(service, file_info['id'])
+            df_clean = clean_dc_load_consumption(df_raw)
+            if not df_clean.empty:
+                frames.append(df_clean)
+            del df_raw; gc.collect()
+
+        if not frames:
+            JOBS_STORE[job_id]["status"] = "failed"
+            JOBS_STORE[job_id]["error"] = "Los archivos Excel no contenían datos válidos."
+            return
+
+        df_all = pd.concat(frames, ignore_index=True)
+        df_all['Date'] = df_all['Date'].astype(str)
+        del frames; gc.collect()
+
+        # Agrupar consumo diario por Location + Date + Site + Supply Mode
+        numeric_agg = {}
+        for col in ['Avg Total Power(kW)', 'Max Total Power(kW)', 'Min Total Power(kW)',
+                    'Avg Total Current(A)', 'Max Total Current(A)', 'Min Total Current(A)',
+                    'consumption_kwh']:
+            if col in df_all.columns:
+                numeric_agg[col] = 'mean'
+
+        df_grouped = (
+            df_all
+            .groupby(['Date', 'Location', 'Site', 'Supply Mode'])
+            .agg(numeric_agg)
+            .reset_index()
+        )
+
+        # Listar proyectos cacheados para el fuzzy matching
+        cached_projects = list_cached_projects(limit=200)
+
+        # Agrupar por Location para hacer la asociación
+        location_groups = df_grouped.groupby('Location')
+        matched_count = 0
+        provisional_count = 0
+        association_map = {}  # {location: folder_id}
+
+        for location, loc_df in location_groups:
+            matched_folder_id = _fuzzy_match_projects(location, cached_projects)
+
+            if matched_folder_id:
+                # Enriquecer proyecto solar existente
+                existing = get_cached_result_json(matched_folder_id)
+                if existing is None:
+                    existing = {}
+                dc_records = json.loads(
+                    loc_df.to_json(orient='records', date_format='iso')
+                )
+                existing['dc_load_consumption'] = dc_records
+                existing['dc_load_locations'] = existing.get('dc_load_locations', [])
+                if location not in existing['dc_load_locations']:
+                    existing['dc_load_locations'].append(location)
+                # Obtener nombre del proyecto para el upsert
+                matched_proj = next((p for p in cached_projects if p.get('folder_id') == matched_folder_id), {})
+                save_project_result(
+                    matched_folder_id,
+                    matched_proj.get('folder_name', matched_folder_id),
+                    existing,
+                    {"dc_load_linked": True, "dc_load_folder": folder_id}
+                )
+                association_map[location] = matched_folder_id
+                matched_count += 1
+            else:
+                # Crear proyecto provisional dc_load_only
+                prov_folder_id = f"dc_load_{folder_id}_{_normalize_name(_extract_location_key(location)).replace(' ', '_')}"
+                prov_name = f"[DC Load] {_extract_location_key(location)}"
+                dc_records = json.loads(
+                    loc_df.to_json(orient='records', date_format='iso')
+                )
+                prov_result = {
+                    "project_id": prov_folder_id,
+                    "project_name": prov_name,
+                    "project_type": "dc_load_only",
+                    "dc_load_consumption": dc_records,
+                    "dc_load_locations": [location],
+                    "daily_generation": [],
+                    "battery_soc": [],
+                    "raw_data": {},
+                }
+                save_project_result(
+                    prov_folder_id,
+                    prov_name,
+                    prov_result,
+                    {
+                        "project_type": "dc_load_only",
+                        "source_folder_id": folder_id,
+                        "dc_load_folder": folder_id,
+                        "processing_date": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                association_map[location] = prov_folder_id
+                provisional_count += 1
+
+        result = {
+            "project_id": folder_id,
+            "project_name": folder_name,
+            "project_type": "dc_load_batch",
+            "total_records": len(df_all),
+            "locations_processed": list(location_groups.groups.keys()),
+            "matched_to_existing": matched_count,
+            "created_provisional": provisional_count,
+            "association_map": association_map,
+        }
+        JOBS_STORE[job_id]["result"] = result
+        JOBS_STORE[job_id]["status"] = "completed"
+        JOBS_STORE[job_id]["from_cache"] = False
+        gc.collect()
+
+    except Exception as e:
+        import traceback
+        JOBS_STORE[job_id]["status"] = "failed"
+        JOBS_STORE[job_id]["error"] = str(e)
+        JOBS_STORE[job_id]["traceback"] = traceback.format_exc()
+
+
+# ─────────────────────────────────────────────────────────────
+# TAREA: Procesamiento tradicional de proyecto solar (CSVs)
+# ─────────────────────────────────────────────────────────────
+
 def _process_project_task(job_id: str, folder_id: str, folder_name: str):
     """Tarea pesada que corre en un hilo separado con bajo uso de memoria."""
     try:
-        # Invalidar el in-process cache por si el usuario está refrescando este proyecto
         from app.api.v1.endpoints.analysis import invalidate_project_cache
         invalidate_project_cache(folder_id)
 
-        # 1. Verificar caché primero (por si ya fue procesado mientras esperaba)
+        # 1. Verificar caché primero
         cached = get_cached_result_json(folder_id)
         if cached:
             JOBS_STORE[job_id]["result"] = cached
@@ -131,12 +325,31 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
             JOBS_STORE[job_id]["from_cache"] = True
             return
 
-        # 2. Obtener lista de archivos (sin descargarlos)
+        # 2. Obtener lista de archivos
         JOBS_STORE[job_id]["status"] = "downloading"
         service = get_drive_service()
+
+        # ── Detección automática: ¿es una carpeta de DC Load Excel? ──
+        excel_files = get_excel_files_in_project(service, folder_id)
+        if excel_files and not get_csv_files_in_project(service, folder_id):
+            # Redirigir al pipeline de consumo DC
+            _process_dc_load_task(job_id, folder_id, folder_name)
+            return
+
         csv_files = get_csv_files_in_project(service, folder_id)
-        
-        # 3. Procesar datos de manera secuencial (para ahorrar RAM)
+
+        # ── Si hay datos de generación solar, buscar si existe proyecto dc_load_only
+        # provisional para este sitio y fusionarlo automáticamente.
+        cached_projects = list_cached_projects(limit=200)
+        prov_folder_id = next(
+            (p['folder_id'] for p in cached_projects
+             if p.get('metadata', {}).get('source_folder_id') != folder_id
+             and p.get('metadata', {}).get('project_type') == 'dc_load_only'
+             and _normalize_name(folder_name) in _normalize_name(p.get('folder_name', ''))),
+            None
+        )
+
+        # 3. Procesar datos CSV secuencialmente
         JOBS_STORE[job_id]["status"] = "processing"
         daily_gen = []
         battery_soc = []
@@ -145,16 +358,12 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
 
         for file_info in csv_files:
             name_key = file_info['name'].replace('.csv', '')
-            
-            # Solo descargar los que realmente vamos a procesar ahora
+
             if name_key == "solar_work_rec":
                 df = download_csv_to_dataframe(service, file_info['id'])
                 raw_summary[name_key] = len(df)
                 df_clean = clean_solar_work_rec(df)
 
-                # ── Corrección automática UTC+8 → UTC-5 (China → Colombia) ──
-                # clean_solar_work_rec no aplica timezone. Lo detectamos aquí
-                # antes de guardar al caché para que todo quede en hora Colombia.
                 from app.services.analysis_service import _detect_utc8_solar, _apply_tz_correction, _UTC8_OFFSET_H
                 if not df_clean.empty and _detect_utc8_solar(df_clean):
                     df_clean['start_time'] = _apply_tz_correction(df_clean['start_time'], _UTC8_OFFSET_H)
@@ -165,25 +374,19 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
 
                 df_daily = get_daily_generation(df_clean)
                 daily_gen = json.loads(df_daily.to_json(orient="records", date_format="iso"))
-                
-                # Para el cache de análisis
                 raw_data_cache["solar"] = json.loads(df_clean.to_json(orient="records", date_format="iso"))
-                
                 del df; del df_clean; del df_daily; gc.collect()
-                
+
             elif name_key == "history_data":
                 df = download_csv_to_dataframe(service, file_info['id'])
-                
                 from app.services.analysis_service import _rename_columns, _detect_utc8_history, _apply_tz_correction, _UTC8_OFFSET_H
                 df = _rename_columns(df)
-                
                 raw_summary[name_key] = len(df)
                 historicos = clean_history_data(df)
 
                 if "battery_soc" in historicos:
                     battery_soc = json.loads(historicos["battery_soc"].to_json(orient="records", date_format="iso"))
 
-                # Filter history_data to keep only essential signals for analysis
                 if df is not None and not df.empty and 'signal_name' in df.columns:
                     mask = df['signal_name'].str.contains(
                         'SOC|SOH|Voltage|Load Power|Source Power|Total Generation|Temperature',
@@ -193,21 +396,16 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                 else:
                     df_filtered = df.copy()
 
-                # Downsample a 4h para proyectos grandes (reduce payload de ~13MB a ~40KB)
                 df_filtered = df_filtered.reset_index(drop=True)
                 df_filtered['save_time'] = pd.to_datetime(df_filtered['save_time'], errors='coerce')
                 df_filtered['value'] = pd.to_numeric(df_filtered['value'], errors='coerce')
                 df_filtered = df_filtered.dropna(subset=['save_time', 'value']).reset_index(drop=True)
 
-                # ── Corrección automática UTC+8 → UTC-5 (China → Colombia) ──
-                # Se detecta y aplica ANTES del resample para que el caché
-                # ya contenga timestamps en hora local de Colombia.
                 if _detect_utc8_history(df_filtered):
                     df_filtered['save_time'] = _apply_tz_correction(df_filtered['save_time'], _UTC8_OFFSET_H)
 
                 df_filtered = df_filtered.groupby(['device_name', 'signal_name']).resample('4h', on='save_time')['value'].mean().reset_index()
 
-                # Cap de 1000 filas por señal para evitar payload excesivo en Supabase
                 MAX_ROWS_PER_SIGNAL = 1000
                 df_filtered = (
                     df_filtered
@@ -215,22 +413,17 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
                     .apply(lambda g: g.tail(MAX_ROWS_PER_SIGNAL))
                     .reset_index(drop=True)
                 )
-
                 raw_data_cache["history"] = json.loads(df_filtered.to_json(orient="records", date_format="iso"))
                 del df; del df_filtered; del historicos; gc.collect()
-                
+
             elif name_key == "history_alarm":
                 df = download_csv_to_dataframe(service, file_info['id'])
-                
                 from app.services.analysis_service import _rename_columns
                 df = _rename_columns(df)
-                
                 raw_summary[name_key] = len(df)
                 raw_data_cache["alarms"] = json.loads(df.to_json(orient="records", date_format="iso"))
                 del df; gc.collect()
             else:
-                # Para los demas, omitimos descarga temporalmente para no dar OOM.
-                # Si necesitamos summary, lo ponemos en 0 por ahora.
                 raw_summary[name_key] = 0
 
         result = {
@@ -242,27 +435,32 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
             "raw_data": raw_data_cache,
         }
 
+        # ── Fusión automática con proyecto provisional DC Load ──
+        if prov_folder_id:
+            prov_data = get_cached_result_json(prov_folder_id)
+            if prov_data and 'dc_load_consumption' in prov_data:
+                result['dc_load_consumption'] = prov_data['dc_load_consumption']
+                result['dc_load_locations'] = prov_data.get('dc_load_locations', [])
+                # Eliminar el proyecto provisional ya que fue absorbido
+                delete_cached_project(prov_folder_id)
+
         metadata = {
             "total_records": sum(raw_summary.values()),
             "csv_files": [f['name'] for f in csv_files],
             "processing_date": datetime.now(timezone.utc).isoformat(),
         }
 
-        # 4. Guardar en Supabase (caché persistente)
         JOBS_STORE[job_id]["status"] = "saving"
         saved = save_project_result(folder_id, folder_name, result, metadata)
         if not saved:
-            # Error de guardado visible en el job (no interrumpe el resultado)
             JOBS_STORE[job_id]["save_warning"] = (
                 "El resultado NO se guardó en el caché Supabase. "
                 "Revisa SUPABASE_SERVICE_KEY y los logs del servidor."
             )
 
-        # 5. Publicar resultado
         JOBS_STORE[job_id]["result"] = result
         JOBS_STORE[job_id]["status"] = "completed"
         JOBS_STORE[job_id]["from_cache"] = False
-
         gc.collect()
 
     except Exception as e:
@@ -275,8 +473,8 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
 @router.post("/process", response_model=JobResponse, status_code=202)
 async def process_project(request: ProcessProjectRequest, background_tasks: BackgroundTasks):
     """
-    Inicia el procesamiento. Si el proyecto ya está en caché, el
-    background task lo detectará y retornará en segundos.
+    Inicia el procesamiento. Detecta automáticamente si la carpeta contiene
+    archivos de consumo DC (Excel) o datos solares tradicionales (CSV).
     """
     job_id = str(uuid.uuid4())
     JOBS_STORE[job_id] = {
@@ -315,3 +513,88 @@ def get_job_status(job_id: str):
         return {"status": "failed", "error": job["error"]}
     else:
         return {"status": job["status"]}
+
+
+# ─────────────────────────────────────────────────────────────
+# ASOCIACIÓN MANUAL: permite vincular consumo DC a un proyecto
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/{project_id}/link-consumption")
+def link_dc_consumption(project_id: str, body: dict):
+    """
+    Vincula manualmente los datos de consumo DC de un proyecto provisional
+    (dc_load_only) a un proyecto solar existente.
+
+    Body JSON:
+    {
+      "dc_load_project_id": "dc_load_...",
+      "location_filter": "All/R5/VCH.La Tigrera"  // opcional, para filtrar ubicación
+    }
+    """
+    dc_project_id = body.get("dc_load_project_id")
+    location_filter = body.get("location_filter")
+
+    if not dc_project_id:
+        raise HTTPException(status_code=400, detail="dc_load_project_id es requerido")
+
+    dc_data = get_cached_result_json(dc_project_id)
+    if not dc_data:
+        raise HTTPException(status_code=404, detail=f"Proyecto DC Load '{dc_project_id}' no encontrado en caché")
+
+    solar_data = get_cached_result_json(project_id)
+    if solar_data is None:
+        raise HTTPException(status_code=404, detail=f"Proyecto solar '{project_id}' no encontrado en caché")
+
+    # Filtrar registros de consumo por location si se especifica
+    dc_records = dc_data.get('dc_load_consumption', [])
+    if location_filter:
+        dc_records = [r for r in dc_records if r.get('Location') == location_filter]
+
+    if not dc_records:
+        raise HTTPException(status_code=404, detail="No se encontraron registros de consumo para la ubicación especificada")
+
+    # Fusionar en el proyecto solar
+    solar_data['dc_load_consumption'] = dc_records
+    solar_data['dc_load_locations'] = solar_data.get('dc_load_locations', [])
+    if location_filter and location_filter not in solar_data['dc_load_locations']:
+        solar_data['dc_load_locations'].append(location_filter)
+
+    # Obtener nombre del proyecto solar para el upsert
+    proj_record = get_cached_project(project_id)
+    proj_name = proj_record.get('folder_name', project_id) if proj_record else project_id
+
+    saved = save_project_result(
+        project_id,
+        proj_name,
+        solar_data,
+        {"dc_load_linked": True, "dc_load_source": dc_project_id}
+    )
+
+    if not saved:
+        raise HTTPException(status_code=500, detail="Error guardando la vinculación en Supabase")
+
+    # Invalidar cache en memoria para que el próximo análisis recargue los datos
+    from app.api.v1.endpoints.analysis import invalidate_project_cache
+    invalidate_project_cache(project_id)
+
+    return {
+        "status": "linked",
+        "project_id": project_id,
+        "dc_load_project_id": dc_project_id,
+        "records_linked": len(dc_records),
+        "location_filter": location_filter,
+    }
+
+
+@router.get("/dc-load/list")
+def list_dc_load_projects():
+    """
+    Lista todos los proyectos de tipo 'dc_load_only' (provisionales)
+    disponibles para vincular manualmente a proyectos solares.
+    """
+    all_projects = list_cached_projects(limit=200)
+    dc_projects = [
+        p for p in all_projects
+        if p.get('metadata', {}).get('project_type') == 'dc_load_only'
+    ]
+    return {"dc_load_projects": dc_projects}

@@ -152,3 +152,24 @@ def get_cached_result_json(folder_id: str) -> Optional[dict]:
     if record:
         return record.get("result_json")
     return None
+
+def delete_cached_project(folder_id: str) -> bool:
+    """
+    Elimina un proyecto del caché de Supabase.
+    """
+    if not _is_configured():
+        return False
+    try:
+        url = f"{settings.SUPABASE_URL}/rest/v1/processed_projects"
+        params = {"folder_id": f"eq.{folder_id}"}
+        headers = _write_headers()
+        with httpx.Client(timeout=8.0) as client:
+            resp = client.delete(url, headers=headers, params=params)
+            if not resp.is_success:
+                logger.error(f"Supabase DELETE falló [{resp.status_code}]: {resp.text[:300]}")
+                return False
+            logger.info(f"Proyecto provisional '{folder_id}' eliminado de Supabase caché ✓")
+            return True
+    except Exception as e:
+        logger.error(f"Error eliminando de Supabase: {e}")
+        return False

@@ -307,4 +307,131 @@ export const analysisApi = {
     }
   ): Promise<AlarmsResponse> =>
     apiClient.get(`/v1/analysis/${projectId}/alarms`, { params }).then(r => r.data),
+
+  // ── B-3: Ahorro Real Cruzado (DC Load vs Solar) ──────────────
+  getRealSavings: (
+    projectId: string,
+    params: {
+      tariff_per_kwh: number;
+      granularity?: 'week' | 'month';
+      site_filter?: string;
+      supply_mode_zero_cost?: boolean;
+      date_from?: string;
+      date_to?: string;
+    }
+  ): Promise<RealSavingsResponse> =>
+    apiClient.get(`/v1/analysis/${projectId}/real-savings`, { params }).then(r => r.data),
+
+  // ── B-4: KPI de Viabilidad del Sitio ─────────────────────────
+  getViabilityIndex: (
+    projectId: string,
+    params?: {
+      granularity?: 'week' | 'month';
+      site_filter?: string;
+      date_from?: string;
+      date_to?: string;
+    }
+  ): Promise<ViabilityResponse> =>
+    apiClient.get(`/v1/analysis/${projectId}/viability-index`, { params }).then(r => r.data),
+
+  // ── B-5: Curva de Demanda vs Envolvente de Carga ─────────────
+  getDemandEnvelope: (
+    projectId: string,
+    params?: {
+      granularity?: 'week' | 'month';
+      site_filter?: string;
+      date_from?: string;
+      date_to?: string;
+    }
+  ): Promise<DemandEnvelopeResponse> =>
+    apiClient.get(`/v1/analysis/${projectId}/demand-envelope`, { params }).then(r => r.data),
 };
+
+// ── B-3 Types ──────────────────────────────────────────────────
+
+export interface RealSavingsPeriod {
+  period: string;
+  label: string;
+  solar_kwh: number;
+  consumption_kwh: number;
+  net_kwh: number;
+  saved_kwh: number;
+  cost_usd: number;
+  autonomy_pct: number;
+  n_days: number;
+}
+
+export interface RealSavingsKpis {
+  total_solar_kwh: number;
+  total_consumption_kwh: number;
+  total_saved_kwh: number;
+  total_cost_usd: number;
+  pct_autonomy: number;
+  tariff_per_kwh: number;
+  currency: string;
+  aligned_days: number;
+  supply_mode_zero_cost: boolean;
+}
+
+export interface RealSavingsResponse {
+  data: RealSavingsPeriod[];
+  kpis: RealSavingsKpis;
+  has_real_data: boolean;
+  message?: string;
+  error?: string;
+}
+
+// ── B-4 Types ──────────────────────────────────────────────────
+
+export type ViabilityStatus = 'oversized' | 'autonomous' | 'deficit';
+
+export interface ViabilityPeriod {
+  period: string;
+  label: string;
+  solar_kwh: number;
+  consumption_kwh: number;
+  viability_ratio: number;
+  status: ViabilityStatus;
+}
+
+export interface ViabilitySummary {
+  global_ratio: number;
+  status: ViabilityStatus;
+  aligned_days: number;
+  interpretation: string;
+}
+
+export interface ViabilityResponse {
+  data: ViabilityPeriod[];
+  summary: ViabilitySummary;
+  has_real_data: boolean;
+  message?: string;
+}
+
+// ── B-5 Types ──────────────────────────────────────────────────
+
+export interface DemandEnvelopePeriod {
+  period: string;
+  label: string;
+  solar_avg_kw: number;
+  avg_load_kw?: number;
+  max_load_kw?: number;
+  min_load_kw?: number;
+  n_days: number;
+  peak_exceeds_solar?: boolean;
+}
+
+export interface DemandEnvelopeSummary {
+  aligned_days: number;
+  avg_solar_kw: number | null;
+  avg_load_kw: number | null;
+}
+
+export interface DemandEnvelopeResponse {
+  data: DemandEnvelopePeriod[];
+  summary: DemandEnvelopeSummary;
+  has_real_data: boolean;
+  message?: string;
+  error?: string;
+}
+

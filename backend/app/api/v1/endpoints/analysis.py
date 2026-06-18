@@ -332,3 +332,146 @@ def get_system_power(
     finally:
         del dfs; gc.collect()
     return result
+
+
+# ─────────────────────────────────────────────────────────────
+# B-3: Ahorro real cruzado (DC Load Consumption vs Generación Solar)
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/{project_id}/real-savings")
+def get_real_savings(
+    project_id: str,
+    tariff_per_kwh: float = Query(..., description="Tarifa eléctrica comercial en USD/kWh"),
+    granularity: Literal['week', 'month'] = Query('month'),
+    site_filter: Optional[str] = Query(None, description="Filtrar por Site específico (ej. 'COCA_PW 1.245')"),
+    supply_mode_zero_cost: bool = Query(
+        False,
+        description="Si True, los días con Supply Mode 100%% solar se calculan con costo de red = 0"
+    ),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+):
+    """
+    Panel B-3: Cruce de generación solar real vs consumo DC medido.
+    Requiere que el proyecto tenga datos de DC Load Consumption vinculados
+    (campo 'dc_load_consumption' en el result_json de Supabase).
+    """
+    cached = get_cached_result_json(project_id)
+    if not cached:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado en caché")
+
+    dc_load_records = cached.get("dc_load_consumption", [])
+    if not dc_load_records:
+        return {
+            "data": [], "kpis": {}, "has_real_data": False,
+            "message": "Este proyecto no tiene datos de DC Load Consumption vinculados. "
+                       "Usa el endpoint /projects/dc-load/list para ver proyectos disponibles y "
+                       "POST /projects/{project_id}/link-consumption para vincularlos."
+        }
+
+    # Cargar datos solares desde el single-slot cache / Supabase
+    dfs = _load_project_dataframes(project_id)
+    df_solar = _get_solar_df(dfs)
+    try:
+        result = svc.get_real_savings(
+            df_solar=df_solar,
+            dc_load_records=dc_load_records,
+            tariff_per_kwh=tariff_per_kwh,
+            granularity=granularity,
+            site_filter=site_filter,
+            supply_mode_as_solar_zero_cost=supply_mode_zero_cost,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    finally:
+        del dfs; gc.collect()
+    return result
+
+
+# ─────────────────────────────────────────────────────────────
+# B-4: KPI de Viabilidad del Sitio (Índice de Sobredimensionamiento/Déficit)
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/{project_id}/viability-index")
+def get_viability_index(
+    project_id: str,
+    granularity: Literal['week', 'month'] = Query('month'),
+    site_filter: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+):
+    """
+    Panel B-4: Índice de viabilidad solar — ratio Generación/Consumo por período.
+    Clasifica cada período como: oversized / autonomous / deficit.
+    Requiere datos de DC Load Consumption vinculados al proyecto.
+    """
+    cached = get_cached_result_json(project_id)
+    if not cached:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado en caché")
+
+    dc_load_records = cached.get("dc_load_consumption", [])
+    if not dc_load_records:
+        return {
+            "data": [], "summary": {}, "has_real_data": False,
+            "message": "Este proyecto no tiene datos de DC Load Consumption vinculados."
+        }
+
+    dfs = _load_project_dataframes(project_id)
+    df_solar = _get_solar_df(dfs)
+    try:
+        result = svc.get_viability_index(
+            df_solar=df_solar,
+            dc_load_records=dc_load_records,
+            granularity=granularity,
+            site_filter=site_filter,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    finally:
+        del dfs; gc.collect()
+    return result
+
+
+# ─────────────────────────────────────────────────────────────
+# B-5: Curva de Demanda vs Envolvente de Carga
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/{project_id}/demand-envelope")
+def get_demand_envelope(
+    project_id: str,
+    granularity: Literal['week', 'month'] = Query('month'),
+    site_filter: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+):
+    """
+    Panel B-5: Curva de demanda vs envolvente de carga (Max / Min / Avg kW).
+    Compara la potencia solar promedio con los picos y valles de consumo DC medido.
+    Marca los períodos donde el pico de carga supera la generación solar disponible.
+    Requiere datos de DC Load Consumption vinculados al proyecto.
+    """
+    cached = get_cached_result_json(project_id)
+    if not cached:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado en caché")
+
+    dc_load_records = cached.get("dc_load_consumption", [])
+    if not dc_load_records:
+        return {
+            "data": [], "summary": {}, "has_real_data": False,
+            "message": "Este proyecto no tiene datos de DC Load Consumption vinculados."
+        }
+
+    dfs = _load_project_dataframes(project_id)
+    df_solar = _get_solar_df(dfs)
+    try:
+        result = svc.get_demand_envelope(
+            df_solar=df_solar,
+            dc_load_records=dc_load_records,
+            granularity=granularity,
+            site_filter=site_filter,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    finally:
+        del dfs; gc.collect()
+    return result

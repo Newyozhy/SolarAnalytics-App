@@ -998,3 +998,341 @@ def get_system_power(
             summary[f"max_{cls}"] = round(float(cls_data['value'].max()), 2)
 
     return {"traces": traces, "devices": devices, "summary": summary}
+
+
+# ─────────────────────────────────────────────────────────────
+# B-3: AHORRO REAL CRUZADO (DC Load Consumption vs Generación Solar)
+# ─────────────────────────────────────────────────────────────
+
+def get_real_savings(
+    df_solar: pd.DataFrame,
+    dc_load_records: list,
+    tariff_per_kwh: float,
+    granularity: Literal['week', 'month'] = 'month',
+    site_filter: Optional[str] = None,
+    supply_mode_as_solar_zero_cost: bool = False,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> dict:
+    """
+    Cruce de datos reales: generación solar (solar_work_rec) vs consumo DC (Excel).
+    Calcula ahorro real, autonomía y costo neto de red por período.
+
+    - dc_load_records: lista de dicts desde result_json['dc_load_consumption']
+    - site_filter: si se especifica, filtra por Site (ej. 'COCA_PW 1.245'); None = suma todos.
+    - supply_mode_as_solar_zero_cost: si True, días con Supply Mode '太阳能' se asumen costo 0.
+    - Alinea fechas por intersección (inner join en fecha diaria).
+    """
+    if not dc_load_records:
+        return {"data": [], "kpis": {}, "has_real_data": False}
+
+    # ── Construir DataFrame de consumo DC ────────────────────
+    df_dc = pd.DataFrame(dc_load_records)
+    df_dc['Date'] = pd.to_datetime(df_dc['Date'], errors='coerce').dt.date
+    df_dc = df_dc.dropna(subset=['Date'])
+
+    # Filtrar por sitio si se especifica
+    if site_filter and 'Site' in df_dc.columns:
+        df_dc = df_dc[df_dc['Site'] == site_filter]
+        if df_dc.empty:
+            return {"data": [], "kpis": {}, "has_real_data": False,
+                    "error": f"No hay datos para el sitio '{site_filter}'"}
+
+    # Agregar consumo por fecha (suma kWh de todos los sitios del día si no hay filtro)
+    agg_dc = {'consumption_kwh': 'sum'}
+    if 'Supply Mode' in df_dc.columns:
+        agg_dc['Supply Mode'] = lambda x: x.mode().iloc[0] if len(x) > 0 else 'unknown'
+    if 'Max Total Power(kW)' in df_dc.columns:
+        agg_dc['Max Total Power(kW)'] = 'sum'
+    if 'Min Total Power(kW)' in df_dc.columns:
+        agg_dc['Min Total Power(kW)'] = 'sum'
+
+    df_dc_daily = df_dc.groupby('Date').agg(agg_dc).reset_index()
+    df_dc_daily.rename(columns={'Date': 'date'}, inplace=True)
+
+    # ── Construir DataFrame de generación solar ───────────────
+    df_sol = _parse_solar(df_solar)
+    if df_sol.empty:
+        return {"data": [], "kpis": {}, "has_real_data": True,
+                "error": "No hay datos de generación solar válidos."}
+
+    df_sol = _detect_outlier_sessions(df_sol)
+    df_sol = df_sol[~df_sol['is_outlier']]
+    df_sol_daily = (
+        df_sol.groupby('date')['kwh'].sum().reset_index()
+        .rename(columns={'kwh': 'solar_kwh'})
+    )
+    df_sol_daily['date'] = pd.to_datetime(df_sol_daily['date']).dt.date
+
+    # ── Alinear fechas (inner join) ───────────────────────────
+    df_merged = pd.merge(df_sol_daily, df_dc_daily, on='date', how='inner')
+
+    if date_from:
+        df_merged = df_merged[df_merged['date'] >= pd.to_datetime(date_from).date()]
+    if date_to:
+        df_merged = df_merged[df_merged['date'] <= pd.to_datetime(date_to).date()]
+
+    if df_merged.empty:
+        return {"data": [], "kpis": {}, "has_real_data": True,
+                "error": "Sin fechas en común entre generación solar y consumo DC."}
+
+    # ── Calcular ahorro por día ───────────────────────────────
+    SOLAR_MODE = '太阳能'
+    df_merged['net_kwh'] = (df_merged['consumption_kwh'] - df_merged['solar_kwh']).clip(lower=0)
+    df_merged['saved_kwh'] = (df_merged['consumption_kwh'] - df_merged['net_kwh']).clip(lower=0)
+
+    # Si el modo es 100% solar Y se eligió costo 0, el costo de red es 0
+    if supply_mode_as_solar_zero_cost and 'Supply Mode' in df_merged.columns:
+        solar_days = df_merged['Supply Mode'] == SOLAR_MODE
+        df_merged.loc[solar_days, 'net_kwh'] = 0
+        df_merged.loc[solar_days, 'saved_kwh'] = df_merged.loc[solar_days, 'consumption_kwh']
+
+    df_merged['cost_usd'] = df_merged['net_kwh'] * tariff_per_kwh
+
+    # ── Agrupar por período ───────────────────────────────────
+    df_merged['period'] = _group_key(pd.to_datetime(df_merged['date']), granularity)
+    grouped = df_merged.groupby('period').agg(
+        solar_kwh=('solar_kwh', 'sum'),
+        consumption_kwh=('consumption_kwh', 'sum'),
+        net_kwh=('net_kwh', 'sum'),
+        saved_kwh=('saved_kwh', 'sum'),
+        cost_usd=('cost_usd', 'sum'),
+        n_days=('date', 'nunique'),
+    ).reset_index()
+
+    grouped['autonomy_pct'] = (
+        (grouped['solar_kwh'] / grouped['consumption_kwh'] * 100).clip(upper=100)
+    ).round(1)
+    grouped['label'] = grouped['period'].apply(lambda k: _label(k, granularity))
+
+    for col in ['solar_kwh', 'consumption_kwh', 'net_kwh', 'saved_kwh', 'cost_usd']:
+        grouped[col] = grouped[col].round(3)
+
+    # ── KPIs globales ─────────────────────────────────────────
+    total_solar = grouped['solar_kwh'].sum()
+    total_consumption = grouped['consumption_kwh'].sum()
+    total_saved = grouped['saved_kwh'].sum()
+    total_cost = grouped['cost_usd'].sum()
+
+    kpis = {
+        "total_solar_kwh": round(total_solar, 2),
+        "total_consumption_kwh": round(total_consumption, 2),
+        "total_saved_kwh": round(total_saved, 2),
+        "total_cost_usd": round(total_cost, 2),
+        "pct_autonomy": round(total_solar / total_consumption * 100, 1) if total_consumption > 0 else 0,
+        "tariff_per_kwh": tariff_per_kwh,
+        "currency": "USD",
+        "aligned_days": int(len(df_merged)),
+        "supply_mode_zero_cost": supply_mode_as_solar_zero_cost,
+    }
+
+    return {
+        "data": grouped.to_dict(orient='records'),
+        "kpis": kpis,
+        "has_real_data": True,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# B-4: KPI DE VIABILIDAD DEL SITIO (Índice de Sobredimensionamiento/Déficit)
+# ─────────────────────────────────────────────────────────────
+
+def get_viability_index(
+    df_solar: pd.DataFrame,
+    dc_load_records: list,
+    granularity: Literal['week', 'month'] = 'month',
+    site_filter: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> dict:
+    """
+    Calcula el índice de viabilidad solar: ratio Generación/Consumo por período.
+    - ratio > 1.0 → Sobredimensionado (puede reducirse o exportarse)
+    - ratio 0.8–1.0 → Autónomo con ligero déficit nocturno
+    - ratio < 0.8 → Déficit importante, necesita red comercial o ampliación
+    """
+    if not dc_load_records:
+        return {"data": [], "summary": {}, "has_real_data": False}
+
+    df_dc = pd.DataFrame(dc_load_records)
+    df_dc['Date'] = pd.to_datetime(df_dc['Date'], errors='coerce').dt.date
+    df_dc = df_dc.dropna(subset=['Date'])
+
+    if site_filter and 'Site' in df_dc.columns:
+        df_dc = df_dc[df_dc['Site'] == site_filter]
+
+    df_dc_daily = df_dc.groupby('Date').agg(consumption_kwh=('consumption_kwh', 'sum')).reset_index()
+    df_dc_daily.rename(columns={'Date': 'date'}, inplace=True)
+
+    df_sol = _parse_solar(df_solar)
+    if df_sol.empty:
+        return {"data": [], "summary": {}, "has_real_data": True}
+
+    df_sol = _detect_outlier_sessions(df_sol)
+    df_sol = df_sol[~df_sol['is_outlier']]
+    df_sol_daily = (
+        df_sol.groupby('date')['kwh'].sum().reset_index()
+        .rename(columns={'kwh': 'solar_kwh'})
+    )
+    df_sol_daily['date'] = pd.to_datetime(df_sol_daily['date']).dt.date
+
+    df_merged = pd.merge(df_sol_daily, df_dc_daily, on='date', how='inner')
+    if date_from:
+        df_merged = df_merged[df_merged['date'] >= pd.to_datetime(date_from).date()]
+    if date_to:
+        df_merged = df_merged[df_merged['date'] <= pd.to_datetime(date_to).date()]
+
+    if df_merged.empty:
+        return {"data": [], "summary": {}, "has_real_data": True}
+
+    df_merged['ratio'] = (
+        df_merged['solar_kwh'] / df_merged['consumption_kwh'].replace(0, float('nan'))
+    ).clip(upper=2.0).round(3)
+
+    df_merged['period'] = _group_key(pd.to_datetime(df_merged['date']), granularity)
+    grouped = df_merged.groupby('period').agg(
+        solar_kwh=('solar_kwh', 'sum'),
+        consumption_kwh=('consumption_kwh', 'sum'),
+        viability_ratio=('ratio', 'mean'),
+    ).reset_index()
+
+    grouped['viability_ratio'] = (
+        (grouped['solar_kwh'] / grouped['consumption_kwh'].replace(0, float('nan')))
+        .clip(upper=2.0).round(3)
+    )
+    grouped['label'] = grouped['period'].apply(lambda k: _label(k, granularity))
+    grouped['status'] = grouped['viability_ratio'].apply(
+        lambda r: 'oversized' if r >= 1.2 else ('autonomous' if r >= 0.8 else 'deficit')
+    )
+
+    global_ratio = (
+        df_merged['solar_kwh'].sum() / df_merged['consumption_kwh'].sum()
+        if df_merged['consumption_kwh'].sum() > 0 else 0
+    )
+
+    summary = {
+        "global_ratio": round(global_ratio, 3),
+        "status": 'oversized' if global_ratio >= 1.2 else ('autonomous' if global_ratio >= 0.8 else 'deficit'),
+        "aligned_days": int(len(df_merged)),
+        "interpretation": (
+            "El sistema fotovoltaico genera en promedio más energía de la que consume el sitio — posible sobredimensionamiento."
+            if global_ratio >= 1.2 else
+            "El sistema cubre la mayor parte del consumo con ligero déficit nocturno."
+            if global_ratio >= 0.8 else
+            "El sitio consume significativamente más de lo que genera — se requiere red comercial o ampliación solar."
+        )
+    }
+
+    return {
+        "data": grouped[['period', 'label', 'solar_kwh', 'consumption_kwh',
+                          'viability_ratio', 'status']].to_dict(orient='records'),
+        "summary": summary,
+        "has_real_data": True,
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# B-5: CURVA DE DEMANDA VS ENVOLVENTE DE CARGA (Max/Min/Avg vs Solar)
+# ─────────────────────────────────────────────────────────────
+
+def get_demand_envelope(
+    df_solar: pd.DataFrame,
+    dc_load_records: list,
+    granularity: Literal['week', 'month'] = 'month',
+    site_filter: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> dict:
+    """
+    Cruza la curva de potencia solar promedio con la envolvente de carga DC (Max/Min/Avg Power kW).
+    Identifica en qué períodos los picos de carga superan la generación solar.
+    """
+    if not dc_load_records:
+        return {"data": [], "summary": {}, "has_real_data": False}
+
+    df_dc = pd.DataFrame(dc_load_records)
+    df_dc['Date'] = pd.to_datetime(df_dc['Date'], errors='coerce').dt.date
+    df_dc = df_dc.dropna(subset=['Date'])
+
+    if site_filter and 'Site' in df_dc.columns:
+        df_dc = df_dc[df_dc['Site'] == site_filter]
+
+    # Agregar potencia (kW) por día — máximo, mínimo, promedio de todos los sitios
+    dc_agg = {}
+    for col, agg_fn in [('Avg Total Power(kW)', 'mean'), ('Max Total Power(kW)', 'max'), ('Min Total Power(kW)', 'min')]:
+        if col in df_dc.columns:
+            dc_agg[col] = agg_fn
+    if not dc_agg:
+        return {"data": [], "summary": {}, "has_real_data": False,
+                "error": "No se encontraron columnas de potencia en los datos DC."}
+
+    df_dc_daily = df_dc.groupby('Date').agg(dc_agg).reset_index()
+    df_dc_daily.rename(columns={
+        'Date': 'date',
+        'Avg Total Power(kW)': 'avg_load_kw',
+        'Max Total Power(kW)': 'max_load_kw',
+        'Min Total Power(kW)': 'min_load_kw',
+    }, errors='ignore', inplace=True)
+
+    # Solar: promedio de kWh/día convertido a kW promedio (kWh / 24)
+    df_sol = _parse_solar(df_solar)
+    if df_sol.empty:
+        return {"data": [], "summary": {}, "has_real_data": True}
+
+    df_sol = _detect_outlier_sessions(df_sol)
+    df_sol = df_sol[~df_sol['is_outlier']]
+    df_sol_daily = (
+        df_sol.groupby('date')['kwh'].sum().reset_index()
+        .rename(columns={'kwh': 'solar_kwh'})
+    )
+    df_sol_daily['date'] = pd.to_datetime(df_sol_daily['date']).dt.date
+    df_sol_daily['solar_avg_kw'] = (df_sol_daily['solar_kwh'] / 24).round(4)
+
+    df_merged = pd.merge(df_sol_daily, df_dc_daily, on='date', how='inner')
+    if date_from:
+        df_merged = df_merged[df_merged['date'] >= pd.to_datetime(date_from).date()]
+    if date_to:
+        df_merged = df_merged[df_merged['date'] <= pd.to_datetime(date_to).date()]
+
+    if df_merged.empty:
+        return {"data": [], "summary": {}, "has_real_data": True}
+
+    df_merged['period'] = _group_key(pd.to_datetime(df_merged['date']), granularity)
+
+    agg_cols = {'solar_avg_kw': 'mean', 'n_days': ('date', 'nunique')}
+    if 'avg_load_kw' in df_merged.columns:
+        agg_cols['avg_load_kw'] = 'mean'
+    if 'max_load_kw' in df_merged.columns:
+        agg_cols['max_load_kw'] = 'max'
+    if 'min_load_kw' in df_merged.columns:
+        agg_cols['min_load_kw'] = 'min'
+
+    grouped = df_merged.groupby('period').agg(
+        solar_avg_kw=('solar_avg_kw', 'mean'),
+        n_days=('date', 'nunique'),
+        **{k: (k, v) for k, v in
+           {c: f for c, f in [('avg_load_kw', 'mean'), ('max_load_kw', 'max'), ('min_load_kw', 'min')]
+            if c in df_merged.columns}.items()}
+    ).reset_index()
+
+    for col in ['solar_avg_kw', 'avg_load_kw', 'max_load_kw', 'min_load_kw']:
+        if col in grouped.columns:
+            grouped[col] = grouped[col].round(4)
+
+    grouped['label'] = grouped['period'].apply(lambda k: _label(k, granularity))
+    # Marcar períodos donde el pico de carga supera la generación promedio
+    if 'max_load_kw' in grouped.columns:
+        grouped['peak_exceeds_solar'] = grouped['max_load_kw'] > grouped['solar_avg_kw']
+
+    summary = {
+        "aligned_days": int(len(df_merged)),
+        "avg_solar_kw": round(float(df_merged['solar_avg_kw'].mean()), 4) if 'solar_avg_kw' in df_merged.columns else None,
+        "avg_load_kw": round(float(df_merged['avg_load_kw'].mean()), 4) if 'avg_load_kw' in df_merged.columns else None,
+    }
+
+    return {
+        "data": grouped.to_dict(orient='records'),
+        "summary": summary,
+        "has_real_data": True,
+    }
+

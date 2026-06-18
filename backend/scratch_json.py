@@ -1,16 +1,19 @@
 import pandas as pd
-import numpy as np
-import json
+import os
 
-df = pd.DataFrame({
-    'a': [1, np.nan, 3],
-    'b': ['x', 'y', np.nan],
-    'time': pd.to_datetime(['2023-01-01', 'NaT', '2023-01-03'])
-})
+def main():
+    coca_cola_path = os.path.join("Coca Cola Updated", "history_data.csv")
+    if os.path.exists(coca_cola_path):
+        df = pd.read_csv(coca_cola_path, nrows=5)
+        print("Columns:", df.columns.tolist())
+        print("First 5 rows:")
+        print(df.to_dict(orient='records'))
+        
+        # Let's read some unique values of 'sid'
+        df_full = pd.read_csv(coca_cola_path, usecols=['sid'])
+        print("\nUnique sid values in Coca Cola:", df_full['sid'].unique().tolist())
+    else:
+        print("Coca Cola Updated/history_data.csv does not exist.")
 
-try:
-    s = df.to_json(orient='records', date_format='iso')
-    d = json.loads(s)
-    print("Result:", d)
-except Exception as e:
-    print("Error:", e)
+if __name__ == "__main__":
+    main()

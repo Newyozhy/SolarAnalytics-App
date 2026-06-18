@@ -20,7 +20,9 @@ __all__ = [
     'get_csv_files_in_project',
     'download_csv_to_dataframe',
     'download_project_data',
-    'upload_file_to_drive'
+    'upload_file_to_drive',
+    'get_excel_files_in_project',
+    'download_excel_to_dataframe'
 ]
 
 
@@ -125,6 +127,42 @@ def download_csv_to_dataframe(service, file_id):
         df = pd.read_csv(fh, encoding='iso-8859-1')
 
     return df
+
+def get_excel_files_in_project(service, project_folder_id):
+    """Busca los archivos Excel relevantes en la carpeta del proyecto (o sus subcarpetas)."""
+    query = f"(mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='application/vnd.ms-excel') and '{project_folder_id}' in parents and trashed=false"
+    results = service.files().list(q=query, fields="nextPageToken, files(id, name)").execute()
+    excel_files = results.get('files', [])
+    
+    if not excel_files:
+        folder_query = f"mimeType='application/vnd.google-apps.folder' and '{project_folder_id}' in parents and trashed=false"
+        subfolders = service.files().list(q=folder_query, fields="files(id, name)").execute().get('files', [])
+        for subf in subfolders:
+            sub_query = f"(mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or mimeType='application/vnd.ms-excel') and '{subf['id']}' in parents and trashed=false"
+            sub_results = service.files().list(q=sub_query, fields="files(id, name)").execute()
+            excel_files.extend(sub_results.get('files', []))
+            
+    # Filtrar solo archivos con nombre que empiece o contenga 'DC Load Consumption'
+    filtered = [f for f in excel_files if 'DC Load Consumption' in f['name']]
+    return filtered
+
+def download_excel_to_dataframe(service, file_id):
+    """Descarga un archivo Excel desde Drive directamente a un DataFrame de Pandas."""
+    request = service.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+
+    fh.seek(0)
+    xl = pd.ExcelFile(fh, engine='openpyxl')
+    df = xl.parse(xl.sheet_names[0])
+    
+    header_row = df.iloc[0]
+    data_df = df.iloc[1:].copy()
+    data_df.columns = header_row
+    return data_df
 
 def download_project_data(service, project_folder_id):
     """Descarga todos los CSVs relevantes de un proyecto y retorna un diccionario de DataFrames."""

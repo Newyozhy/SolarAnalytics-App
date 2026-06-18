@@ -13,6 +13,9 @@ import { PanelA2HourlyProfile } from './PanelA2HourlyProfile';
 import { PanelA3CalendarHeatmap } from './PanelA3CalendarHeatmap';
 import { PanelB1ConsumptionProfile } from './PanelB1ConsumptionProfile';
 import { PanelB2Savings } from './PanelB2Savings';
+import { PanelB3RealSavings } from './PanelB3RealSavings';
+import { PanelB4ViabilityIndex } from './PanelB4ViabilityIndex';
+import { PanelB5DemandEnvelope } from './PanelB5DemandEnvelope';
 import { PanelC1Battery } from './PanelC1Battery';
 import { PanelD1SpuChannels } from './PanelD1SpuChannels';
 import { PanelD2SystemPower } from './PanelD2SystemPower';
@@ -100,6 +103,9 @@ function CategoryConsumption({ projectId }: { projectId: string }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <PanelB1ConsumptionProfile projectId={projectId} />
       <PanelB2Savings projectId={projectId} />
+      <PanelB3RealSavings projectId={projectId} />
+      <PanelB4ViabilityIndex projectId={projectId} />
+      <PanelB5DemandEnvelope projectId={projectId} />
     </motion.div>
   );
 }
