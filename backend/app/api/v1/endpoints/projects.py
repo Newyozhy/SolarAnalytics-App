@@ -153,14 +153,65 @@ def _fuzzy_match_projects(location: str, cached_projects: list) -> str | None:
     """
     Intenta encontrar el folder_id del proyecto en Supabase cuyo nombre
     normalizado coincide con el location extraído del Excel.
-    Retorna el folder_id si hay coincidencia, None si no.
+    Ignora proyectos provisionales (dc_load_only).
+    Retorna el folder_id si hay coincidencia única, None si no.
     """
     location_key = _normalize_name(_extract_location_key(location))
+    matches = []
     for proj in cached_projects:
+        folder_id = proj.get('folder_id', '')
+        if folder_id.startswith('dc_load_'):
+            continue
+        meta = proj.get('metadata') or {}
+        if meta.get('project_type') == 'dc_load_only':
+            continue
+
         proj_name_norm = _normalize_name(proj.get('folder_name', ''))
         if location_key in proj_name_norm or proj_name_norm in location_key:
-            return proj.get('folder_id')
+            matches.append(proj)
+            
+    if len(matches) == 1:
+        return matches[0].get('folder_id')
     return None
+
+def _find_candidate_projects(location: str, cached_projects: list) -> list:
+    """Retorna todos los proyectos solares que coinciden parcialmente con la ubicación."""
+    location_key = _normalize_name(_extract_location_key(location))
+    candidates = []
+    for proj in cached_projects:
+        folder_id = proj.get('folder_id', '')
+        if folder_id.startswith('dc_load_'):
+            continue
+        meta = proj.get('metadata') or {}
+        if meta.get('project_type') == 'dc_load_only':
+            continue
+
+        proj_name_norm = _normalize_name(proj.get('folder_name', ''))
+        if location_key in proj_name_norm or proj_name_norm in location_key:
+            candidates.append(proj)
+    return candidates
+
+def get_project_suffix_num(name: str) -> int:
+    """Extrae el número de sufijo de un proyecto (ej. Esmeralda 2 -> 2). Default = 1."""
+    norm = _normalize_name(name)
+    match = re.search(r'\b(\d+)\b$', norm)
+    if match:
+        return int(match.group(1))
+    return 1
+
+def get_site_suffix_num(site_name: str) -> int:
+    """Extrae un número identificador del sitio (ej. SFV2 -> 2, PW 1.245 -> 1). Default = 1."""
+    norm = site_name.lower()
+    match = re.search(r'sfv(\d+)', norm)
+    if match:
+        return int(match.group(1))
+    match = re.search(r'\b(\d+)\.', norm)
+    if match:
+        return int(match.group(1))
+    match = re.search(r'\b([1-9])\b', norm)
+    if match:
+        return int(match.group(1))
+    return 1
 
 
 # ─────────────────────────────────────────────────────────────
@@ -174,6 +225,7 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
     - Intenta asociar automáticamente cada Location con un proyecto solar existente.
     - Si coincide, enriquece el result_json de ese proyecto con dc_load_consumption.
     - Si no coincide, crea un proyecto provisional de tipo 'dc_load_only'.
+    - Si coincide con múltiples proyectos solares candidatos, divide por Site.
     """
     try:
         JOBS_STORE[job_id]["status"] = "downloading"
@@ -227,35 +279,13 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
         location_groups = df_grouped.groupby('Location')
         matched_count = 0
         provisional_count = 0
-        association_map = {}  # {location: folder_id}
+        association_map = {}  # {location: status_string}
 
         for location, loc_df in location_groups:
-            matched_folder_id = _fuzzy_match_projects(location, cached_projects)
+            candidates = _find_candidate_projects(location, cached_projects)
 
-            if matched_folder_id:
-                # Enriquecer proyecto solar existente
-                existing = get_cached_result_json(matched_folder_id)
-                if existing is None:
-                    existing = {}
-                dc_records = json.loads(
-                    loc_df.to_json(orient='records', date_format='iso')
-                )
-                existing['dc_load_consumption'] = dc_records
-                existing['dc_load_locations'] = existing.get('dc_load_locations', [])
-                if location not in existing['dc_load_locations']:
-                    existing['dc_load_locations'].append(location)
-                # Obtener nombre del proyecto para el upsert
-                matched_proj = next((p for p in cached_projects if p.get('folder_id') == matched_folder_id), {})
-                save_project_result(
-                    matched_folder_id,
-                    matched_proj.get('folder_name', matched_folder_id),
-                    existing,
-                    {"dc_load_linked": True, "dc_load_folder": folder_id}
-                )
-                association_map[location] = matched_folder_id
-                matched_count += 1
-            else:
-                # Crear proyecto provisional dc_load_only
+            if not candidates:
+                # Caso 1: No hay candidatos -> Crear proyecto provisional (dc_load_only)
                 prov_folder_id = f"dc_load_{folder_id}_{_normalize_name(_extract_location_key(location)).replace(' ', '_')}"
                 prov_name = f"[DC Load] {_extract_location_key(location)}"
                 dc_records = json.loads(
@@ -284,6 +314,98 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
                 )
                 association_map[location] = prov_folder_id
                 provisional_count += 1
+
+            elif len(candidates) == 1:
+                # Caso 2: Coincidencia única
+                matched_proj = candidates[0]
+                matched_folder_id = matched_proj.get('folder_id')
+                existing = get_cached_result_json(matched_folder_id) or {}
+                dc_records = json.loads(
+                    loc_df.to_json(orient='records', date_format='iso')
+                )
+                existing['dc_load_consumption'] = dc_records
+                existing['dc_load_locations'] = existing.get('dc_load_locations', [])
+                if location not in existing['dc_load_locations']:
+                    existing['dc_load_locations'].append(location)
+
+                save_project_result(
+                    matched_folder_id,
+                    matched_proj.get('folder_name', matched_folder_id),
+                    existing,
+                    {"dc_load_linked": True, "dc_load_folder": folder_id}
+                )
+                association_map[location] = matched_folder_id
+                matched_count += 1
+
+            else:
+                # Caso 3: Múltiples candidatos -> Dividir registros por Site y asociar por número
+                site_groups = loc_df.groupby('Site')
+                matched_sites_list = []
+                unmatched_site_dfs = []
+
+                for site_name, site_df in site_groups:
+                    site_num = get_site_suffix_num(site_name)
+                    matched_proj = None
+                    for c in candidates:
+                        proj_num = get_project_suffix_num(c.get('folder_name', ''))
+                        if proj_num == site_num:
+                            matched_proj = c
+                            break
+
+                    if matched_proj:
+                        matched_folder_id = matched_proj.get('folder_id')
+                        existing = get_cached_result_json(matched_folder_id) or {}
+                        dc_records = json.loads(
+                            site_df.to_json(orient='records', date_format='iso')
+                        )
+                        existing['dc_load_consumption'] = dc_records
+                        existing['dc_load_locations'] = existing.get('dc_load_locations', [])
+                        if location not in existing['dc_load_locations']:
+                            existing['dc_load_locations'].append(location)
+
+                        save_project_result(
+                            matched_folder_id,
+                            matched_proj.get('folder_name', matched_folder_id),
+                            existing,
+                            {"dc_load_linked": True, "dc_load_folder": folder_id, "dc_load_site": site_name}
+                        )
+                        matched_sites_list.append(f"{site_name} -> {matched_proj.get('folder_name')}")
+                        matched_count += 1
+                    else:
+                        unmatched_site_dfs.append(site_df)
+
+                if unmatched_site_dfs:
+                    combined_unmatched = pd.concat(unmatched_site_dfs, ignore_index=True)
+                    prov_folder_id = f"dc_load_{folder_id}_{_normalize_name(_extract_location_key(location)).replace(' ', '_')}_unmatched"
+                    prov_name = f"[DC Load] {_extract_location_key(location)} (Sin emparejar)"
+                    dc_records = json.loads(
+                        combined_unmatched.to_json(orient='records', date_format='iso')
+                    )
+                    prov_result = {
+                        "project_id": prov_folder_id,
+                        "project_name": prov_name,
+                        "project_type": "dc_load_only",
+                        "dc_load_consumption": dc_records,
+                        "dc_load_locations": [location],
+                        "daily_generation": [],
+                        "battery_soc": [],
+                        "raw_data": {},
+                    }
+                    save_project_result(
+                        prov_folder_id,
+                        prov_name,
+                        prov_result,
+                        {
+                            "project_type": "dc_load_only",
+                            "source_folder_id": folder_id,
+                            "dc_load_folder": folder_id,
+                            "processing_date": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
+                    provisional_count += 1
+
+                association_map[location] = f"Split: {', '.join(matched_sites_list)}"
+
 
         result = {
             "project_id": folder_id,

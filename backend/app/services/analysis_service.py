@@ -1126,11 +1126,12 @@ def get_real_savings(
         "supply_mode_zero_cost": supply_mode_as_solar_zero_cost,
     }
 
-    return {
+    res = {
         "data": grouped.to_dict(orient='records'),
         "kpis": kpis,
         "has_real_data": True,
     }
+    return _replace_nan_with_none(res)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1223,12 +1224,13 @@ def get_viability_index(
         )
     }
 
-    return {
+    res = {
         "data": grouped[['period', 'label', 'solar_kwh', 'consumption_kwh',
                           'viability_ratio', 'status']].to_dict(orient='records'),
         "summary": summary,
         "has_real_data": True,
     }
+    return _replace_nan_with_none(res)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1330,9 +1332,21 @@ def get_demand_envelope(
         "avg_load_kw": round(float(df_merged['avg_load_kw'].mean()), 4) if 'avg_load_kw' in df_merged.columns else None,
     }
 
-    return {
+    res = {
         "data": grouped.to_dict(orient='records'),
         "summary": summary,
         "has_real_data": True,
     }
+    return _replace_nan_with_none(res)
+
+
+def _replace_nan_with_none(val):
+    """Reemplaza recursivamente NaN e Inf por None en diccionarios y listas."""
+    if isinstance(val, dict):
+        return {k: _replace_nan_with_none(v) for k, v in val.items()}
+    elif isinstance(val, list):
+        return [_replace_nan_with_none(v) for v in val]
+    elif isinstance(val, float) and (np.isnan(val) or np.isinf(val)):
+        return None
+    return val
 
