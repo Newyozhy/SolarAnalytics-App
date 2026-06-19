@@ -58,5 +58,10 @@ export const projectsApi = {
       location_filter: locationFilter
     });
     return data;
+  },
+
+  unlinkConsumption: async (projectId: string): Promise<any> => {
+    const { data } = await apiClient.post<any>(`/v1/projects/${projectId}/unlink-consumption`, {});
+    return data;
   }
 };

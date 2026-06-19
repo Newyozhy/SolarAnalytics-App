@@ -9,6 +9,7 @@ import { MetricToggle } from '@/components/ui/MetricToggle';
 import { analysisApi } from '@/api/analysis';
 import type { RealSavingsResponse } from '@/api/analysis';
 import { PanelConsumptionLink } from './PanelConsumptionLink';
+import { projectsApi } from '@/api/projects';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Plot = (PlotlyChart as any).default ?? PlotlyChart;
@@ -56,6 +57,23 @@ export function PanelB3RealSavings({ projectId }: Props) {
   const [solarZeroCost, setSolarZeroCost] = useState(false);
   const [data, setData]               = useState<RealSavingsResponse | null>(null);
   const [loading, setLoading]         = useState(false);
+  const [unlinking, setUnlinking]     = useState(false);
+
+  const handleUnlink = async () => {
+    if (!window.confirm('¿Está seguro de que desea desasociar el consumo DC de este proyecto?')) {
+      return;
+    }
+    setUnlinking(true);
+    try {
+      await projectsApi.unlinkConsumption(projectId);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      alert('Error al desasociar el consumo.');
+    } finally {
+      setUnlinking(false);
+    }
+  };
 
   const fetchData = useCallback(() => {
     if (!projectId) return;
@@ -118,13 +136,24 @@ export function PanelB3RealSavings({ projectId }: Props) {
   return (
     <div className="space-y-4">
       {/* Header badge */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          Datos Reales DC Load
-        </span>
-        <span className="text-[10px] text-muted-foreground">
-          Cruce de generación solar medida vs consumo DC registrado
-        </span>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            Datos Reales DC Load
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            Cruce de generación solar medida vs consumo DC registrado
+          </span>
+        </div>
+        {hasRealData && (
+          <button
+            onClick={handleUnlink}
+            disabled={unlinking}
+            className="text-[10px] font-semibold text-red-400/80 hover:text-red-400 border border-red-500/20 hover:border-red-500/40 bg-red-500/5 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1"
+          >
+            {unlinking ? 'Desasociando...' : 'Desasociar Consumo DC'}
+          </button>
+        )}
       </div>
 
       {/* Config bar */}

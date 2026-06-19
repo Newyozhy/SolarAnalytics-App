@@ -282,47 +282,42 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
         association_map = {}  # {location: status_string}
 
         for location, loc_df in location_groups:
+            # Crear y guardar SIEMPRE el proyecto provisional (dc_load_only) para que aparezca en la lista manual
+            prov_folder_id = f"dc_load_{folder_id}_{_normalize_name(_extract_location_key(location)).replace(' ', '_')}"
+            prov_name = f"[DC Load] {_extract_location_key(location)}"
+            dc_records = json.loads(
+                loc_df.to_json(orient='records', date_format='iso')
+            )
+            prov_result = {
+                "project_id": prov_folder_id,
+                "project_name": prov_name,
+                "project_type": "dc_load_only",
+                "dc_load_consumption": dc_records,
+                "dc_load_locations": [location],
+                "daily_generation": [],
+                "battery_soc": [],
+                "raw_data": {},
+            }
+            save_project_result(
+                prov_folder_id,
+                prov_name,
+                prov_result,
+                {
+                    "project_type": "dc_load_only",
+                    "source_folder_id": folder_id,
+                    "dc_load_folder": folder_id,
+                    "processing_date": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            provisional_count += 1
+
             candidates = _find_candidate_projects(location, cached_projects)
 
-            if not candidates:
-                # Caso 1: No hay candidatos -> Crear proyecto provisional (dc_load_only)
-                prov_folder_id = f"dc_load_{folder_id}_{_normalize_name(_extract_location_key(location)).replace(' ', '_')}"
-                prov_name = f"[DC Load] {_extract_location_key(location)}"
-                dc_records = json.loads(
-                    loc_df.to_json(orient='records', date_format='iso')
-                )
-                prov_result = {
-                    "project_id": prov_folder_id,
-                    "project_name": prov_name,
-                    "project_type": "dc_load_only",
-                    "dc_load_consumption": dc_records,
-                    "dc_load_locations": [location],
-                    "daily_generation": [],
-                    "battery_soc": [],
-                    "raw_data": {},
-                }
-                save_project_result(
-                    prov_folder_id,
-                    prov_name,
-                    prov_result,
-                    {
-                        "project_type": "dc_load_only",
-                        "source_folder_id": folder_id,
-                        "dc_load_folder": folder_id,
-                        "processing_date": datetime.now(timezone.utc).isoformat(),
-                    }
-                )
-                association_map[location] = prov_folder_id
-                provisional_count += 1
-
-            elif len(candidates) == 1:
+            if len(candidates) == 1:
                 # Caso 2: Coincidencia única
                 matched_proj = candidates[0]
                 matched_folder_id = matched_proj.get('folder_id')
                 existing = get_cached_result_json(matched_folder_id) or {}
-                dc_records = json.loads(
-                    loc_df.to_json(orient='records', date_format='iso')
-                )
                 existing['dc_load_consumption'] = dc_records
                 existing['dc_load_locations'] = existing.get('dc_load_locations', [])
                 if location not in existing['dc_load_locations']:
@@ -334,14 +329,13 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
                     existing,
                     {"dc_load_linked": True, "dc_load_folder": folder_id}
                 )
-                association_map[location] = matched_folder_id
+                association_map[location] = f"{prov_folder_id} -> Auto-asociado a {matched_folder_id}"
                 matched_count += 1
 
-            else:
+            elif len(candidates) > 1:
                 # Caso 3: Múltiples candidatos -> Dividir registros por Site y asociar por número
                 site_groups = loc_df.groupby('Site')
                 matched_sites_list = []
-                unmatched_site_dfs = []
 
                 for site_name, site_df in site_groups:
                     site_num = get_site_suffix_num(site_name)
@@ -355,10 +349,10 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
                     if matched_proj:
                         matched_folder_id = matched_proj.get('folder_id')
                         existing = get_cached_result_json(matched_folder_id) or {}
-                        dc_records = json.loads(
+                        site_dc_records = json.loads(
                             site_df.to_json(orient='records', date_format='iso')
                         )
-                        existing['dc_load_consumption'] = dc_records
+                        existing['dc_load_consumption'] = site_dc_records
                         existing['dc_load_locations'] = existing.get('dc_load_locations', [])
                         if location not in existing['dc_load_locations']:
                             existing['dc_load_locations'].append(location)
@@ -371,40 +365,10 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
                         )
                         matched_sites_list.append(f"{site_name} -> {matched_proj.get('folder_name')}")
                         matched_count += 1
-                    else:
-                        unmatched_site_dfs.append(site_df)
 
-                if unmatched_site_dfs:
-                    combined_unmatched = pd.concat(unmatched_site_dfs, ignore_index=True)
-                    prov_folder_id = f"dc_load_{folder_id}_{_normalize_name(_extract_location_key(location)).replace(' ', '_')}_unmatched"
-                    prov_name = f"[DC Load] {_extract_location_key(location)} (Sin emparejar)"
-                    dc_records = json.loads(
-                        combined_unmatched.to_json(orient='records', date_format='iso')
-                    )
-                    prov_result = {
-                        "project_id": prov_folder_id,
-                        "project_name": prov_name,
-                        "project_type": "dc_load_only",
-                        "dc_load_consumption": dc_records,
-                        "dc_load_locations": [location],
-                        "daily_generation": [],
-                        "battery_soc": [],
-                        "raw_data": {},
-                    }
-                    save_project_result(
-                        prov_folder_id,
-                        prov_name,
-                        prov_result,
-                        {
-                            "project_type": "dc_load_only",
-                            "source_folder_id": folder_id,
-                            "dc_load_folder": folder_id,
-                            "processing_date": datetime.now(timezone.utc).isoformat(),
-                        }
-                    )
-                    provisional_count += 1
-
-                association_map[location] = f"Split: {', '.join(matched_sites_list)}"
+                association_map[location] = f"{prov_folder_id} -> Split: {', '.join(matched_sites_list)}"
+            else:
+                association_map[location] = prov_folder_id
 
 
         result = {
@@ -563,8 +527,8 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
             if prov_data and 'dc_load_consumption' in prov_data:
                 result['dc_load_consumption'] = prov_data['dc_load_consumption']
                 result['dc_load_locations'] = prov_data.get('dc_load_locations', [])
-                # Eliminar el proyecto provisional ya que fue absorbido
-                delete_cached_project(prov_folder_id)
+                # NO eliminar el proyecto provisional para que siga visible en la lista
+                # delete_cached_project(prov_folder_id)
 
         metadata = {
             "total_records": sum(raw_summary.values()),
@@ -705,6 +669,42 @@ def link_dc_consumption(project_id: str, body: dict):
         "dc_load_project_id": dc_project_id,
         "records_linked": len(dc_records),
         "location_filter": location_filter,
+    }
+
+
+@router.post("/{project_id}/unlink-consumption")
+def unlink_dc_consumption(project_id: str):
+    """
+    Desasocia/elimina la vinculación de consumo DC de un proyecto solar.
+    """
+    solar_data = get_cached_result_json(project_id)
+    if solar_data is None:
+        raise HTTPException(status_code=404, detail=f"Proyecto solar '{project_id}' no encontrado en caché")
+
+    # Eliminar campos de consumo DC
+    solar_data.pop('dc_load_consumption', None)
+    solar_data.pop('dc_load_locations', None)
+
+    proj_record = get_cached_project(project_id)
+    proj_name = proj_record.get('folder_name', project_id) if proj_record else project_id
+
+    saved = save_project_result(
+        project_id,
+        proj_name,
+        solar_data,
+        {"dc_load_linked": False, "dc_load_folder": None, "dc_load_site": None, "dc_load_source": None}
+    )
+
+    if not saved:
+        raise HTTPException(status_code=500, detail="Error eliminando la vinculación en Supabase")
+
+    # Invalidar cache en memoria
+    from app.api.v1.endpoints.analysis import invalidate_project_cache
+    invalidate_project_cache(project_id)
+
+    return {
+        "status": "unlinked",
+        "project_id": project_id
     }
 
 

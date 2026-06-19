@@ -117,7 +117,7 @@
     },
     "b2": {
       "title": "Solar Generated vs Net Grid Consumption",
-      "subtitle": "Period comparison — green = energy produced · red = energy purchased from grid",
+      "subtitle": "Simulated period comparison (Theoretical Base Consumption) — green = energy produced · red = estimated net grid consumption",
       "baseConsumption": "Base consumption (kWh/h)",
       "tariff": "Electricity tariff",
       "calculate": "Calculate",

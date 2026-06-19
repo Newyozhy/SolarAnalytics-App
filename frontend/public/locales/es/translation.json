@@ -117,7 +117,7 @@
     },
     "b2": {
       "title": "Solar Generado vs Consumo Neto de Red",
-      "subtitle": "Comparativo por período — verde = energía producida · rojo = energía comprada de la red",
+      "subtitle": "Comparativo simulado por período (Consumo Base Teórico) — verde = energía producida · rojo = consumo neto de red estimado",
       "baseConsumption": "Consumo base (kWh/h)",
       "tariff": "Tarifa eléctrica",
       "calculate": "Calcular",
