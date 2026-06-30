@@ -22,7 +22,9 @@ __all__ = [
     'download_project_data',
     'upload_file_to_drive',
     'get_excel_files_in_project',
-    'download_excel_to_dataframe'
+    'download_excel_to_dataframe',
+    'detect_folder_type',
+    'download_merged_project_data',
 ]
 
 
@@ -178,6 +180,123 @@ def download_project_data(service, project_folder_id):
         dataframes[name_key] = df
         
     return dataframes
+
+
+# ─────────────────────────────────────────────────────────────
+# DETECCIÓN DE TIPO DE CARPETA Y FUSIÓN DE SITIOS GLOBALES
+# ─────────────────────────────────────────────────────────────
+
+RELEVANT_CSV_NAMES = {'solar_work_rec.csv', 'history_data.csv', 'batt_chg_rec.csv', 'batt_dischg_rec.csv', 'history_alarm.csv'}
+
+def detect_folder_type(service, folder_id: str) -> dict:
+    """
+    Detecta automáticamente si una carpeta es:
+      - 'project'  : contiene CSVs directamente (proyecto individual)
+      - 'site'     : contiene subcarpetas, cada una con CSVs (sitio global)
+      - 'dc_load'  : contiene solo Excels de consumo DC
+      - 'empty'    : sin datos relevantes
+
+    Retorna:
+    {
+        'type': 'project' | 'site' | 'dc_load' | 'empty',
+        'children': [{'id': ..., 'name': ...}, ...]  # solo si type == 'site'
+    }
+    """
+    # 1. Verificar si tiene CSVs directos
+    direct_csvs = get_csv_files_in_project.__wrapped__(service, folder_id) if hasattr(get_csv_files_in_project, '__wrapped__') else _list_direct_csvs(service, folder_id)
+    if direct_csvs:
+        return {'type': 'project', 'children': []}
+
+    # 2. Verificar si tiene Excels de DC Load directos
+    excel_query = (
+        f"(mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' "
+        f"or mimeType='application/vnd.ms-excel') "
+        f"and '{folder_id}' in parents and trashed=false"
+    )
+    excel_res = service.files().list(q=excel_query, fields="files(id, name)").execute()
+    excel_files = [f for f in excel_res.get('files', []) if 'DC Load Consumption' in f['name']]
+    if excel_files:
+        return {'type': 'dc_load', 'children': []}
+
+    # 3. Verificar si tiene subcarpetas con CSVs dentro (sitio global)
+    subfolders = list_subfolders(service, folder_id)
+    site_children = []
+    for subf in subfolders:
+        sub_csvs = _list_direct_csvs(service, subf['id'])
+        if sub_csvs:
+            site_children.append({'id': subf['id'], 'name': subf['name']})
+
+    if site_children:
+        return {'type': 'site', 'children': site_children}
+
+    return {'type': 'empty', 'children': []}
+
+
+def _list_direct_csvs(service, folder_id: str) -> list:
+    """Lista CSVs relevantes que están directamente en folder_id (sin recursión en subcarpetas)."""
+    query = f"mimeType='text/csv' and '{folder_id}' in parents and trashed=false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    csv_files = results.get('files', [])
+    return [f for f in csv_files if f['name'] in RELEVANT_CSV_NAMES]
+
+
+def download_merged_project_data(service, parent_folder_id: str, children: list) -> dict:
+    """
+    Descarga y fusiona los CSVs de todas las subcarpetas (partes) de un sitio global.
+
+    - Cada parte se procesa secuencialmente para bajo uso de memoria.
+    - Se añade columna 'source_part' a 'history_data' e 'history_alarm' para
+      distinguir dispositivos de partes distintas sin perder trazabilidad.
+    - Los DataFrames resultantes son idénticos en estructura a los que genera
+      download_project_data(), por lo que el motor de análisis funciona sin cambios.
+
+    Retorna:
+        dict con claves: 'solar_work_rec', 'history_data', 'history_alarm' (si existen)
+    """
+    import gc
+
+    accumulators: dict[str, list] = {}
+
+    for part in children:
+        part_id = part['id']
+        part_name = part['name']
+        csv_files = _list_direct_csvs(service, part_id)
+
+        # También buscar en subcarpetas de la parte (por compatibilidad con proyectos anidados)
+        if not csv_files:
+            sub_query = f"mimeType='application/vnd.google-apps.folder' and '{part_id}' in parents and trashed=false"
+            sub_res = service.files().list(q=sub_query, fields="files(id, name)").execute()
+            for subf in sub_res.get('files', []):
+                sub_csvs = _list_direct_csvs(service, subf['id'])
+                csv_files.extend(sub_csvs)
+
+        for file_info in csv_files:
+            df = download_csv_to_dataframe(service, file_info['id'])
+            name_key = file_info['name'].replace('.csv', '')
+
+            # Añadir columna de trazabilidad a tablas de señales/alarmas
+            if name_key in ('history_data', 'history_alarm'):
+                df['source_part'] = part_name
+
+            if name_key not in accumulators:
+                accumulators[name_key] = []
+            accumulators[name_key].append(df)
+            gc.collect()
+
+    if not accumulators:
+        raise ValueError(
+            f"No se encontraron archivos CSV relevantes en ninguna subcarpeta del sitio '{parent_folder_id}'."
+        )
+
+    # Concatenar acumuladores
+    merged: dict = {}
+    for name_key, frames in accumulators.items():
+        if frames:
+            merged[name_key] = pd.concat(frames, ignore_index=True)
+        del frames
+        gc.collect()
+
+    return merged
 
 def upload_file_to_drive(service, file_path, folder_id, file_name=None):
     """Sube un archivo local a una carpeta específica en Google Drive."""

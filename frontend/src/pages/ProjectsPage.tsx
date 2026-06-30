@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AnalysisDashboard } from '@/components/analysis/AnalysisDashboard';
 import { projectsApi } from '@/api/projects';
-import type { Folder } from '@/api/projects';
+import type { Folder, SiteInfo } from '@/api/projects';
 import { useProjectCache } from '@/hooks/useProjectCache';
 import { useUIContext } from '@/App';
 import { cn } from '@/lib/utils';
@@ -46,6 +46,9 @@ export function ProjectsPage() {
   // Cache
   const { cacheMap, loadCacheStatus, loadCachedResult, invalidate } = useProjectCache();
 
+  // Site info map: folder_id → SiteInfo (detecta si es sitio global)
+  const [siteInfoMap, setSiteInfoMap] = useState<Record<string, SiteInfo>>({});
+
   // Processing
   const [processingFolder, setProcessingFolder] = useState<Folder | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -80,6 +83,16 @@ export function ProjectsPage() {
       // Load cache status for the visible folders in parallel
       if (folders.length > 0) {
         loadCacheStatus(folders.map(f => f.id));
+        // Detectar sitios globales en segundo plano (sin bloquear la UI)
+        folders.forEach(folder => {
+          projectsApi.getSiteInfo(folder.id, folder.name)
+            .then(info => {
+              if (info.site_type === 'site') {
+                setSiteInfoMap(prev => ({ ...prev, [folder.id]: info }));
+              }
+            })
+            .catch(() => { /* Ignorar errores de detección */ });
+        });
       }
     } catch {
       setCurrentFolders([]);
@@ -105,11 +118,13 @@ export function ProjectsPage() {
 
   const handleNavigate = (folder: Folder) => {
     setSelectedFolder(null);
+    setSiteInfoMap({});  // Limpiar mapa al navegar (nueva carga)
     setBreadcrumbs(prev => [...prev, { id: folder.id, name: folder.name }]);
   };
 
   const handleBreadcrumbClick = (index: number) => {
     setSelectedFolder(null);
+    setSiteInfoMap({});  // Limpiar mapa al navegar
     setBreadcrumbs(prev => prev.slice(0, index + 1));
   };
 
@@ -123,7 +138,7 @@ export function ProjectsPage() {
     }
   };
 
-  // Start processing
+  // Start processing (proyecto individual o sitio global — el backend detecta)
   const handleProcess = async (folder: Folder) => {
     setProcessingFolder(folder);
     setJobError(null);
@@ -139,6 +154,11 @@ export function ProjectsPage() {
       setJobError(e?.message || 'Error al iniciar');
       setProcessingFolder(null);
     }
+  };
+
+  // Analizar globalmente un sitio (misma llamada; el backend detecta que es 'site')
+  const handleProcessGlobal = async (folder: Folder) => {
+    handleProcess(folder);
   };
 
   // Polling
@@ -182,6 +202,15 @@ export function ProjectsPage() {
   // Processed IDs set for FolderTree
   const processedIds = new Set(Object.keys(cacheMap));
 
+  // Invalidar siteInfoMap de un folder cuando se reprocesa
+  const handleInvalidateSiteInfo = (folderId: string) => {
+    setSiteInfoMap(prev => {
+      const next = { ...prev };
+      delete next[folderId];
+      return next;
+    });
+  };
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background">
       <Header
@@ -223,7 +252,7 @@ export function ProjectsPage() {
               onBack={() => setAnalysisTarget(null)}
             />
           ) : (
-            <FolderContent
+          <FolderContent
               folders={filteredFolders}
               loading={loading}
               viewMode={viewMode}
@@ -232,8 +261,10 @@ export function ProjectsPage() {
               onSelect={setSelectedFolder}
               onNavigate={handleNavigate}
               onProcess={handleProcess}
+              onProcessGlobal={handleProcessGlobal}
               onViewCached={handleViewCached}
               onOpenAnalysis={handleViewCached}
+              siteInfoMap={siteInfoMap}
               processedMap={Object.fromEntries(
                 Object.entries(cacheMap).map(([id, v]) => [
                   id,

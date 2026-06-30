@@ -27,7 +27,10 @@
     "expandNav": "Expand navigator",
     "dblClickAnalysis": "Double-click to open analysis",
     "rootFolder": "Solar Panels",
-    "navigator": "Navigator"
+    "site": "Site",
+    "globalAnalysis": "Global Analysis",
+    "viewGlobal": "View Global",
+    "mergingParts": "Merging sub-projects"
   },
   "processing": {
     "title": "Processing Project",
@@ -39,7 +42,9 @@
     "complete": "Completed",
     "error": "Processing error",
     "errorTitle": "Processing error",
-    "close": "Close"
+    "close": "Close",
+    "mergingTitle": "Merging Global Site",
+    "mergingParts": "Merging sub-projects"
   },
   "dashboard": {
     "totalEnergy": "Total Energy",

@@ -26,6 +26,24 @@ export interface JobStatusResponse {
   from_cache?: boolean;
 }
 
+// ─── Sitios Globales ─────────────────────────────────────────
+
+export interface ChildFolderInfo {
+  id: string;
+  name: string;
+  cached: boolean;
+  processed_at?: string;
+}
+
+export interface SiteInfo {
+  folder_id: string;
+  folder_name: string;
+  site_type: 'project' | 'site' | 'dc_load' | 'empty';
+  children: ChildFolderInfo[];
+  merged_cached: boolean;
+  merged_processed_at?: string;
+}
+
 export const projectsApi = {
   getRootFolders: async (): Promise<FolderResponse> => {
     const { data } = await apiClient.get<FolderResponse>('/v1/projects/root-folders');
@@ -47,6 +65,13 @@ export const projectsApi = {
     return data;
   },
 
+  getSiteInfo: async (folderId: string, folderName: string): Promise<SiteInfo> => {
+    const { data } = await apiClient.get<SiteInfo>(`/v1/projects/${folderId}/site-info`, {
+      params: { folder_name: folderName },
+    });
+    return data;
+  },
+
   listDcLoadProjects: async (): Promise<{ dc_load_projects: any[] }> => {
     const { data } = await apiClient.get<{ dc_load_projects: any[] }>('/v1/projects/dc-load/list');
     return data;
@@ -65,3 +90,4 @@ export const projectsApi = {
     return data;
   }
 };
+

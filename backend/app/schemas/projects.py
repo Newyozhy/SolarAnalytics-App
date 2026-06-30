@@ -32,3 +32,20 @@ class ProjectDataResponse(BaseModel):
     daily_generation: List[DailyGenerationRecord]
     battery_soc: List[BatterySocRecord]
     raw_data_summary: Dict[str, Any]
+
+
+# ─── Sitios Globales ─────────────────────────────────────────
+
+class ChildFolderInfo(BaseModel):
+    id: str
+    name: str
+    cached: bool
+    processed_at: Optional[str] = None
+
+class SiteInfoResponse(BaseModel):
+    folder_id: str
+    folder_name: str
+    site_type: str           # 'project' | 'site' | 'dc_load' | 'empty'
+    children: List[ChildFolderInfo]
+    merged_cached: bool
+    merged_processed_at: Optional[str] = None

@@ -8,11 +8,12 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
 
-from app.schemas.projects import FolderResponse, ProcessProjectRequest, JobResponse
+from app.schemas.projects import FolderResponse, ProcessProjectRequest, JobResponse, SiteInfoResponse
 from app.services.drive_service import (
     get_drive_service, find_folder_id, list_subfolders, download_project_data,
     get_csv_files_in_project, download_csv_to_dataframe,
-    get_excel_files_in_project, download_excel_to_dataframe
+    get_excel_files_in_project, download_excel_to_dataframe,
+    detect_folder_type, download_merged_project_data
 )
 from app.services.data_service import (
     clean_solar_work_rec, get_daily_generation, clean_history_data,
@@ -67,6 +68,48 @@ def get_folder_contents(folder_id: str):
         service = get_drive_service()
         folders = list_subfolders(service, folder_id)
         return {"folders": folders}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────
+# INFORMACIÓN DE SITIO GLOBAL
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/{folder_id}/site-info", response_model=SiteInfoResponse)
+def get_site_info(folder_id: str, folder_name: str = ""):
+    """
+    Detecta automáticamente si una carpeta es un sitio global (contenedor) o un proyecto individual.
+    Retorna el tipo, la lista de sub-proyectos y el estado de caché de cada uno.
+    """
+    try:
+        service = get_drive_service()
+        info = detect_folder_type(service, folder_id)
+
+        # Estado de caché de cada hijo
+        children_with_cache = []
+        for child in info.get('children', []):
+            record = get_cached_project(child['id'])
+            children_with_cache.append({
+                'id': child['id'],
+                'name': child['name'],
+                'cached': bool(record),
+                'processed_at': record.get('processed_at') if record else None,
+            })
+
+        # Estado del caché global (ID del contenedor)
+        merged_record = get_cached_project(folder_id)
+
+        return {
+            'folder_id': folder_id,
+            'folder_name': folder_name,
+            'site_type': info['type'],
+            'children': children_with_cache,
+            'merged_cached': bool(merged_record),
+            'merged_processed_at': merged_record.get('processed_at') if merged_record else None,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -394,6 +437,145 @@ def _process_dc_load_task(job_id: str, folder_id: str, folder_name: str):
 
 
 # ─────────────────────────────────────────────────────────────
+# TAREA: Procesamiento de Sitio Global (fusión de sub-carpetas)
+# ─────────────────────────────────────────────────────────────
+
+def _process_merged_site_task(job_id: str, folder_id: str, folder_name: str, children: list):
+    """
+    Procesa un sitio global que contiene múltiples sub-proyectos (partes).
+    Fusiona los DataFrames de todas las partes y genera un resultado unificado
+    guardado en Supabase bajo el folder_id del contenedor.
+
+    El resultado tiene la misma estructura que un proyecto individual,
+    por lo que todos los endpoints de análisis funcionan sin modificación.
+    """
+    try:
+        from app.api.v1.endpoints.analysis import invalidate_project_cache
+        invalidate_project_cache(folder_id)
+
+        JOBS_STORE[job_id]["status"] = "downloading"
+        service = get_drive_service()
+
+        # Descargar y fusionar CSVs de todas las partes
+        merged_dfs = download_merged_project_data(service, folder_id, children)
+
+        JOBS_STORE[job_id]["status"] = "processing"
+
+        daily_gen = []
+        battery_soc = []
+        raw_summary = {}
+        raw_data_cache = {}
+
+        # ── Procesar solar_work_rec fusionado ──
+        if "solar_work_rec" in merged_dfs:
+            df = merged_dfs["solar_work_rec"]
+            raw_summary["solar_work_rec"] = len(df)
+            df_clean = clean_solar_work_rec(df)
+
+            from app.services.analysis_service import _detect_utc8_solar, _apply_tz_correction, _UTC8_OFFSET_H
+            if not df_clean.empty and _detect_utc8_solar(df_clean):
+                df_clean['start_time'] = _apply_tz_correction(df_clean['start_time'], _UTC8_OFFSET_H)
+                if 'end_time' in df_clean.columns:
+                    df_clean['end_time'] = _apply_tz_correction(df_clean['end_time'], _UTC8_OFFSET_H)
+                if 'date' in df_clean.columns:
+                    df_clean['date'] = df_clean['start_time'].dt.date
+
+            df_daily = get_daily_generation(df_clean)
+            daily_gen = json.loads(df_daily.to_json(orient="records", date_format="iso"))
+            raw_data_cache["solar"] = json.loads(df_clean.to_json(orient="records", date_format="iso"))
+            del df; del df_clean; del df_daily; gc.collect()
+
+        # ── Procesar history_data fusionado ──
+        if "history_data" in merged_dfs:
+            df = merged_dfs["history_data"]
+            from app.services.analysis_service import _rename_columns, _detect_utc8_history, _apply_tz_correction, _UTC8_OFFSET_H
+            df = _rename_columns(df)
+            raw_summary["history_data"] = len(df)
+            historicos = clean_history_data(df)
+
+            if "battery_soc" in historicos:
+                battery_soc = json.loads(historicos["battery_soc"].to_json(orient="records", date_format="iso"))
+
+            if df is not None and not df.empty and 'signal_name' in df.columns:
+                mask = df['signal_name'].str.contains(
+                    'SOC|SOH|Voltage|Load Power|Source Power|Total Generation|Temperature',
+                    case=False, na=False
+                )
+                df_filtered = df[mask].copy()
+            else:
+                df_filtered = df.copy()
+
+            df_filtered = df_filtered.reset_index(drop=True)
+            df_filtered['save_time'] = pd.to_datetime(df_filtered['save_time'], errors='coerce')
+            df_filtered['value'] = pd.to_numeric(df_filtered['value'], errors='coerce')
+            df_filtered = df_filtered.dropna(subset=['save_time', 'value']).reset_index(drop=True)
+
+            if _detect_utc8_history(df_filtered):
+                df_filtered['save_time'] = _apply_tz_correction(df_filtered['save_time'], _UTC8_OFFSET_H)
+
+            df_filtered = df_filtered.groupby(['device_name', 'signal_name']).resample('4h', on='save_time')['value'].mean().reset_index()
+
+            MAX_ROWS_PER_SIGNAL = 1000
+            df_filtered = (
+                df_filtered
+                .groupby(['device_name', 'signal_name'], group_keys=False)
+                .apply(lambda g: g.tail(MAX_ROWS_PER_SIGNAL))
+                .reset_index(drop=True)
+            )
+            raw_data_cache["history"] = json.loads(df_filtered.to_json(orient="records", date_format="iso"))
+            del df; del df_filtered; del historicos; gc.collect()
+
+        # ── Procesar history_alarm fusionado ──
+        if "history_alarm" in merged_dfs:
+            df = merged_dfs["history_alarm"]
+            from app.services.analysis_service import _rename_columns
+            df = _rename_columns(df)
+            raw_summary["history_alarm"] = len(df)
+            raw_data_cache["alarms"] = json.loads(df.to_json(orient="records", date_format="iso"))
+            del df; gc.collect()
+
+        del merged_dfs; gc.collect()
+
+        result = {
+            "project_id": folder_id,
+            "project_name": folder_name,
+            "project_type": "merged_site",
+            "merged_parts": [c['name'] for c in children],
+            "daily_generation": daily_gen,
+            "battery_soc": battery_soc,
+            "raw_data_summary": raw_summary,
+            "raw_data": raw_data_cache,
+        }
+
+        metadata = {
+            "project_type": "merged_site",
+            "child_folder_ids": [c['id'] for c in children],
+            "child_folder_names": [c['name'] for c in children],
+            "total_records": sum(raw_summary.values()),
+            "processing_date": datetime.now(timezone.utc).isoformat(),
+        }
+
+        JOBS_STORE[job_id]["status"] = "saving"
+        saved = save_project_result(folder_id, folder_name, result, metadata)
+        if not saved:
+            JOBS_STORE[job_id]["save_warning"] = (
+                "El resultado global NO se guardó en el caché Supabase. "
+                "Revisa SUPABASE_SERVICE_KEY y los logs del servidor."
+            )
+
+        JOBS_STORE[job_id]["result"] = result
+        JOBS_STORE[job_id]["status"] = "completed"
+        JOBS_STORE[job_id]["from_cache"] = False
+        gc.collect()
+
+    except Exception as e:
+        import traceback
+        JOBS_STORE[job_id]["status"] = "failed"
+        JOBS_STORE[job_id]["error"] = str(e)
+        JOBS_STORE[job_id]["traceback"] = traceback.format_exc()
+
+
+# ─────────────────────────────────────────────────────────────
 # TAREA: Procesamiento tradicional de proyecto solar (CSVs)
 # ─────────────────────────────────────────────────────────────
 
@@ -415,9 +597,15 @@ def _process_project_task(job_id: str, folder_id: str, folder_name: str):
         JOBS_STORE[job_id]["status"] = "downloading"
         service = get_drive_service()
 
-        # ── Detección automática: ¿es una carpeta de DC Load Excel? ──
-        excel_files = get_excel_files_in_project(service, folder_id)
-        if excel_files and not get_csv_files_in_project(service, folder_id):
+        # ── Detección automática del tipo de carpeta ──
+        folder_info = detect_folder_type(service, folder_id)
+
+        if folder_info['type'] == 'site':
+            # Redirigir al pipeline de sitio global
+            _process_merged_site_task(job_id, folder_id, folder_name, folder_info['children'])
+            return
+
+        if folder_info['type'] == 'dc_load':
             # Redirigir al pipeline de consumo DC
             _process_dc_load_task(job_id, folder_id, folder_name)
             return
