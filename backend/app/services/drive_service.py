@@ -245,6 +245,8 @@ def download_merged_project_data(service, parent_folder_id: str, children: list)
     Descarga y fusiona los CSVs de todas las subcarpetas (partes) de un sitio global.
 
     - Cada parte se procesa secuencialmente para bajo uso de memoria.
+    - history_data se filtra por señales relevantes ANTES de acumular para
+      evitar OOM en servidores con poca RAM (p.ej. con 4 partes * 200k filas).
     - Se añade columna 'source_part' a 'history_data' e 'history_alarm' para
       distinguir dispositivos de partes distintas sin perder trazabilidad.
     - Los DataFrames resultantes son idénticos en estructura a los que genera
@@ -254,6 +256,13 @@ def download_merged_project_data(service, parent_folder_id: str, children: list)
         dict con claves: 'solar_work_rec', 'history_data', 'history_alarm' (si existen)
     """
     import gc
+    import re as _re
+
+    # Señales relevantes para el análisis (igual que el filtro en _process_merged_site_task)
+    _SIGNAL_FILTER = _re.compile(
+        r'SOC|SOH|Voltage|Load Power|Source Power|Total Generation|Temperature|SPCU',
+        flags=_re.IGNORECASE
+    )
 
     accumulators: dict[str, list] = {}
 
@@ -274,6 +283,12 @@ def download_merged_project_data(service, parent_folder_id: str, children: list)
             df = download_csv_to_dataframe(service, file_info['id'])
             name_key = file_info['name'].replace('.csv', '')
 
+            # ── Optimización de memoria: filtrar history_data por señales relevantes
+            # ANTES de acumular, para no saturar la RAM con millones de filas brutas.
+            if name_key == 'history_data' and 'signal_name' in df.columns:
+                mask = df['signal_name'].str.contains(_SIGNAL_FILTER, na=False)
+                df = df[mask].copy()
+
             # Añadir columna de trazabilidad a tablas de señales/alarmas
             if name_key in ('history_data', 'history_alarm'):
                 df['source_part'] = part_name
@@ -281,6 +296,7 @@ def download_merged_project_data(service, parent_folder_id: str, children: list)
             if name_key not in accumulators:
                 accumulators[name_key] = []
             accumulators[name_key].append(df)
+            del df
             gc.collect()
 
     if not accumulators:

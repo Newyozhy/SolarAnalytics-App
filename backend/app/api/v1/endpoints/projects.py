@@ -4,9 +4,12 @@ import uuid
 import asyncio
 import gc
 import json
+import logging
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from app.schemas.projects import FolderResponse, ProcessProjectRequest, JobResponse, SiteInfoResponse
 from app.services.drive_service import (
@@ -560,8 +563,28 @@ def _process_merged_site_task(job_id: str, folder_id: str, folder_name: str, chi
         if not saved:
             JOBS_STORE[job_id]["save_warning"] = (
                 "El resultado global NO se guardó en el caché Supabase. "
-                "Revisa SUPABASE_SERVICE_KEY y los logs del servidor."
+                "Revisa SUPABASE_SERVICE_KEY y los logs del servidor. "
+                "El análisis funcionará desde la memoria RAM hasta que el servidor reinicie."
             )
+
+        # ── Poblar el Single-Slot Cache en RAM ──────────────────────────────
+        # Aunque Supabase falle, los paneles de análisis podrán servir desde memoria.
+        try:
+            from app.api.v1.endpoints.analysis import _ACTIVE_PROJECT, _CACHE_LOCK
+            slot_data = {}
+            if raw_data_cache.get("solar"):
+                slot_data["solar_work_rec"] = pd.DataFrame(raw_data_cache["solar"])
+            if raw_data_cache.get("history"):
+                slot_data["history_data"] = pd.DataFrame(raw_data_cache["history"])
+            if raw_data_cache.get("alarms"):
+                slot_data["history_alarm"] = pd.DataFrame(raw_data_cache["alarms"])
+            if slot_data:
+                with _CACHE_LOCK:
+                    _ACTIVE_PROJECT["id"] = folder_id
+                    _ACTIVE_PROJECT["data"] = slot_data
+                logger.info(f"Single-Slot Cache populado para sitio global '{folder_name}' (id={folder_id})")
+        except Exception as cache_err:
+            logger.warning(f"No se pudo poblar Single-Slot Cache: {cache_err}")
 
         JOBS_STORE[job_id]["result"] = result
         JOBS_STORE[job_id]["status"] = "completed"

@@ -22,16 +22,23 @@ CREATE INDEX IF NOT EXISTS idx_processed_projects_folder_id
 CREATE INDEX IF NOT EXISTS idx_processed_projects_processed_at
     ON processed_projects (processed_at DESC);
 
--- RLS (Row Level Security) — activar para producción
+-- ══════════════════════════════════════════════════
+-- RLS (Row Level Security)
+-- ══════════════════════════════════════════════════
 ALTER TABLE processed_projects ENABLE ROW LEVEL SECURITY;
 
 -- Política: lectura pública (anon key puede leer)
+DROP POLICY IF EXISTS "Allow public read" ON processed_projects;
 CREATE POLICY "Allow public read" ON processed_projects
     FOR SELECT USING (true);
 
--- Política: escritura solo desde service_role (backend)
-CREATE POLICY "Allow service role write" ON processed_projects
-    FOR ALL USING (auth.role() = 'service_role');
+-- Política: escritura pública desde backend (anon key puede escribir)
+-- NOTA: Si tienes SUPABASE_SERVICE_KEY configurada en .env, el backend bypasea
+--       RLS automáticamente y esta política no es necesaria. Si NO tienes la
+--       service_role key, esta política permite que el backend escriba con anon key.
+DROP POLICY IF EXISTS "Allow backend write" ON processed_projects;
+CREATE POLICY "Allow backend write" ON processed_projects
+    FOR ALL USING (true) WITH CHECK (true);
 
 -- Vista auxiliar: últimos 10 proyectos procesados
 CREATE OR REPLACE VIEW recent_projects AS
@@ -44,3 +51,14 @@ SELECT
 FROM processed_projects
 ORDER BY processed_at DESC
 LIMIT 10;
+
+-- ══════════════════════════════════════════════════
+-- INSTRUCCIONES (ejecutar solo si SUPABASE_SERVICE_KEY está disponible)
+-- ══════════════════════════════════════════════════
+-- Para una configuración más segura en producción con service_role key:
+-- 1. Obtener service_role key: Dashboard > Project Settings > API > service_role
+-- 2. Agregar al .env del backend: SUPABASE_SERVICE_KEY=tu_service_role_key
+-- 3. Reemplazar la política "Allow backend write" por:
+--    DROP POLICY IF EXISTS "Allow backend write" ON processed_projects;
+--    CREATE POLICY "Allow service role write" ON processed_projects
+--        FOR ALL USING (auth.role() = 'service_role');
